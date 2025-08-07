@@ -1,0 +1,37 @@
+services:
+  db:
+    image: ankane/pgvector
+    volumes:
+      - ./postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql
+      - postgres_db_api_chat_bot:/var/lib/postgresql/data
+    ports:
+      - 5433:5432
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - PGUSER=${POSTGRES_USER}
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - api_chat_bot_network
+  backend:
+
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    command: gunicorn api_chat_bot.wsgi:application -b :8000 --timeout 3600 --threads 4 --reload
+    ports:
+      - 8000:8000
+    depends_on:
+      - db
+    networks:
+      - api_chat_bot_network
+
+volumes:
+  postgres_db_api_chat_bot:
+
+networks:
+  api_chat_bot_network:
+    driver: bridge
