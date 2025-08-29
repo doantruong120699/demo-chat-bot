@@ -7,31 +7,32 @@ from .serializers import ChatRequestSerializer
 from rest_framework.response import Response
 from rest_framework import status
 from agents.text2sql import Text2SQL
+from agents.chat import ChatBot
 
 class ChatView(APIView):
     permission_classes = [AllowAny]
     serializer_class = ChatRequestSerializer
 
-    # def post(self, request):
-    #     serializer = self.serializer_class(data=request.data)
-    #     serializer.is_valid(raise_exception=True)
-    #     chat_service = ChatService()
-    #     return chat_service.chat(serializer.validated_data)
-
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        text2sql = Text2SQL()
-        
-        # Create a streaming response from the generator
-        def stream_response():
-            for chunk in text2sql.chat_handler(serializer.validated_data["message"]):
-                yield chunk
+        chat_service = ChatService()
+        return chat_service.chat(serializer.validated_data)
 
-        return StreamingHttpResponse(
-            stream_response(),
-            content_type='text/event-stream; charset=utf-8'
-        )
+    # def post(self, request):
+    #     serializer = self.serializer_class(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+    #     chat_bot = ChatBot()
+        
+    #     # Create a streaming response from the generator
+    #     def stream_response():
+    #         for chunk in chat_bot.chat_handler(serializer.validated_data["message"]):
+    #             yield chunk
+
+    #     return StreamingHttpResponse(
+    #         stream_response(),
+    #         content_type='text/event-stream; charset=utf-8'
+    #     )
 
     # def get(self, request):
     #     text2sql = Text2SQL()

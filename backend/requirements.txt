@@ -19,6 +19,7 @@ boto3
 langchain
 langchain-openai
 langchain-community
+langchain-postgres
 python-docx
 pgvector
 openai

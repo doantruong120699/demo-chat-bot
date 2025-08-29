@@ -5,7 +5,7 @@ from langchain_community.docstore.document import Document
 from langchain_openai import OpenAIEmbeddings
 import openai
 import time
-from langchain_community.vectorstores import PGVector
+from langchain_postgres import PGVector
 
 # Create your models here.
 
@@ -17,10 +17,16 @@ class DocumentEmbedding(models.Model):
     def __str__(self):
         return self.content
     
-def get_pgvector_client() -> PGVector:
+def get_pgvector_client() -> PGVector:    
+    # connection = f"postgresql+psycopg2://admin:Aa123456localhost:5433/chat_ai"
+    connection = "postgresql+psycopg2://admin:Aa123456%40@localhost:5433/chat_ai"
+
+    
     return PGVector(
-        connection_string="postgresql://postgres:postgres@localhost:5433/postgres",
-        embedding=OpenAIEmbeddings(model="text-embedding-3-small"),
+        embeddings=OpenAIEmbeddings(model="text-embedding-3-small"),
+        collection_name="whitepaper_embeddings",
+        connection=connection,
+        use_jsonb=True,
     )
 
 
@@ -49,4 +55,3 @@ def create_document_embedding(
                     time.sleep(30)
                     continue
                 raise
-

@@ -10,7 +10,7 @@ class Text2SQL:
     Text2SQL agent that converts natural language queries into SQL queries.
     """
 
-    def __init__(self):
+    def __init__(self, model="gpt-4o-mini"):
         self.conn = connect_to_db()
         self.database_metadata = self.load_database_metadata()
         self.SCHEMA = yaml.dump(
@@ -22,54 +22,8 @@ class Text2SQL:
             default_flow_style=False,
             sort_keys=False,
         )
-        api_key = settings.OPENAI_API_KEY
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
-
-        self.llm = OpenAI(api_key=api_key)
-
-    def chat_handler(self, text):
-        """
-        Chat handler that converts natural language queries into SQL queries.
-        Returns a streaming response with only the answer.
-        """
-
-        # First, generate the SQL query
-        sql_query = self.convert_text_to_sql(text)
-        print(
-            "-------------------------------- SQL QUERY --------------------------------"
-        )
-        print(sql_query)
-        print(
-            "-------------------------------- END SQL QUERY --------------------------------"
-        )
-
-        # Execute the query and get results
-        query_results = execute_sql_query(self.conn, sql_query)
-
-        # Generate answer in streaming format
-        answer_prompt = f"""
-        Câu hỏi của người dùng: {text}
-        
-        Kết quả truy vấn:
-        {query_results}
-
-        Dựa trên kết quả truy vấn, hãy cung cấp một câu trả lời rõ ràng và ngắn gọn cho câu hỏi của người dùng.
-        Tập trung vào việc trả lời trực tiếp những gì được hỏi, và bao gồm các con số hoặc sự kiện liên quan từ dữ liệu.
-        Nếu kết quả không trả lời trực tiếp câu hỏi, hãy giải thích thông tin nào đã được tìm thấy.
-        Hãy làm cho câu trả lời thân thiện và hấp dẫn hơn.
-        """
-
-        # Stream the answer generation
-        answer_stream = self.llm.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": answer_prompt}],
-            stream=True,
-        )
-
-        for chunk in answer_stream:
-            if chunk.choices[0].delta.content:
-                yield f"data: {json.dumps({'type': 'token', 'content': chunk.choices[0].delta.content})}\n\n"
+        self.model = model
+        self.llm = OpenAI(api_key=settings.OPENAI_API_KEY)
 
     def load_database_metadata(self):
         """
@@ -79,20 +33,55 @@ class Text2SQL:
 
         # Get the directory where this script is located
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        metadata_path = os.path.join(script_dir, "database_metadata.yml")
+        metadata_path = os.path.join(script_dir, "config/database_metadata.json")
 
         with open(metadata_path, "r") as file:
-            database_metadata = yaml.safe_load(file)
+            database_metadata = json.load(file)
         return database_metadata
-
-    def convert_text_to_sql(self, text):
-        prompt = f"""
-        Bạn là một agent SQL chuyển đổi các câu hỏi ngôn ngữ tự nhiên thành các câu truy vấn SQL.
+    
+    def salary_calculator_prompt(self):
+        return f"""
+        Bạn là một agent SQL chuyên về tính toán lương nhân viên. Bạn chuyển đổi các câu hỏi về lương thành các câu truy vấn SQL.
 
         Đây là schema của cơ sở dữ liệu:
         {self.SCHEMA}
 
+        QUY TẮC TÍNH LƯƠNG:
+        1. Lương cơ bản được lưu trong bảng user_info.salary (VND/tháng)
+        2. Thời gian làm việc được lưu trong bảng report_time với các trường:
+           - user_id: id của nhân viên
+           - start_time: thời gian bắt đầu làm việc
+           - end_time: thời gian kết thúc làm việc  
+           - duration: tổng số giờ làm việc trong ngày (giờ)
+        3. Số giờ làm việc tiêu chuẩn trong tháng: 
+           - Một ngày làm việc 8 giờ, Làm việc từ thứ Hai đến thứ Sáu (không tính T7, Chủ nhật)
+        4. Số giờ làm việc thực tế của nhân viên trong tháng:
+           - Tổng duration trong bảng report_time của nhân viên trong tháng đó
+        5. Các công thức tính lương:
+           Nếu số giờ làm việc thực tế của nhân viên trong tháng lớn hơn hoặc bằng số giờ làm việc tiêu chuẩn trong tháng thì tính thêm lương làm thêm giờ.
+           - Lương tháng = Lương cơ bản
+           - Lương làm thêm giờ = (Lương cơ bản / số giờ làm việc tiêu chuẩn trong tháng) * (số giờ làm việc thực tế của nhân viên trong tháng - số giờ làm việc tiêu chuẩn trong tháng) * hệ số 1.5
+           - Tổng lương = Lương tháng + Lương làm thêm giờ
+           Nếu số giờ làm việc thực tế của nhân viên trong tháng nhỏ hơn số giờ làm việc tiêu chuẩn trong tháng thì tính thêm lương làm thêm giờ.
+           - Tổng lương = (Lương cơ bản / số giờ làm việc tiêu chuẩn trong tháng) * số giờ làm việc thực tế của nhân viên trong tháng
+
+        5. Các trường hợp đặc biệt:
+           - Tăng ca: hệ số 1.5
+
+        Các loại câu hỏi thường gặp:
+        - Tính lương tháng của nhân viên
+        - Tính lương làm thêm giờ
+        - Tính lương theo khoảng thời gian
+        - Tính tổng lương của tất cả nhân viên
+        - Tính lương trung bình
+        - Tính số giờ làm việc của nhân viên
+
         Câu hỏi của người dùng:
+        """
+
+    def convert_text_to_sql(self, text):
+        prompt = f"""
+        {self.salary_calculator_prompt()}
         {text}
 
         Dựa trên schema cơ sở dữ liệu và câu hỏi của người dùng, hãy tạo một câu truy vấn SQL để trả lời câu hỏi.
@@ -101,7 +90,32 @@ class Text2SQL:
         """
 
         sql_query = self.llm.chat.completions.create(
-            model="gpt-4o-mini",
+            model=self.model,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return sql_query.choices[0].message.content
+
+    def calculate_salary_sql(self, text):
+        """
+        Chuyên biệt cho việc tính toán lương nhân viên
+        """
+        prompt = self.salary_calculator_prompt() + f"""
+        {text}
+
+        Dựa trên quy tắc tính lương và schema cơ sở dữ liệu, hãy tạo một câu truy vấn SQL để tính toán lương theo yêu cầu.
+        Chỉ trả về câu truy vấn SQL mà không có bất kỳ giải thích hay định dạng markdown nào.
+        Câu truy vấn phải đúng cú pháp và tương thích với PostgreSQL.
+
+        Khi hỏi tính lương, bạn phải trả về các thông tin sau:
+        - Tổng số giờ làm việc thực tế của nhân viên trong tháng
+        - Tổng số giờ làm việc tiêu chuẩn trong tháng
+        - Tổng lương tháng
+        - Tổng lương làm thêm giờ
+        - Tổng lương
+        """
+
+        sql_query = self.llm.chat.completions.create(
+            model=self.model,
             messages=[{"role": "user", "content": prompt}],
         )
         return sql_query.choices[0].message.content

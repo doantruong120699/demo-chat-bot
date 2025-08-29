@@ -48,22 +48,6 @@ class ChatService:
             verbose=False,
         )
         
-        # Load whitepaper content
-        self.whitepaper_content = self.load_whitepaper_content()
-
-    def load_whitepaper_content(self):
-        """Load the whitepaper content from the extracted file"""
-        try:
-            with open('whitepaper_data.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                return data['content']
-        except FileNotFoundError:
-            print("Warning: whitepaper_data.json not found. Using empty context.")
-            return ""
-        except Exception as e:
-            print(f"Error loading whitepaper: {e}")
-            return ""
-
     def chat(self, input_data):
         return self.stream_chat(input_data)
 
@@ -86,18 +70,34 @@ class ChatService:
 
         def event_stream():
             try:
+                # Get relevant context from vector database
+                relevant_docs = self.search_whitepaper_embeddings(user_message, top_k=3)
+                
+                # Combine relevant context with fallback content
+                context_content = ""
+                if relevant_docs:
+                    context_content = "\n\n".join([doc.page_content for doc in relevant_docs])
+                else:
+                    # Fallback to the full whitepaper content if no relevant chunks found
+                    context_content = ""
+                
                 # Create system message with whitepaper context
                 system_message = f"""You are a helpful AI assistant with access to a whitepaper about Tosi Growth Holding. 
-                Use the following whitepaper content to answer questions accurately and comprehensively:
+                Use the following relevant whitepaper content to answer questions accurately and comprehensively:
 
-                {self.whitepaper_content}
+                {context_content}
 
                 When answering questions:
                 1. Base your responses on the whitepaper content provided above
                 2. If the question is not related to the whitepaper, politely redirect to whitepaper-related topics
                 3. Provide specific information from the whitepaper when possible
                 4. Be helpful and informative while staying within the context of the whitepaper
+                5. If you don't have enough information to answer the question, say so and suggest what information might be available
                 """
+
+                print("=system_message===============================================")
+                print(system_message)
+                print("================================================")
                 
                 # Create messages with system context
                 messages = [
@@ -138,29 +138,129 @@ class ChatService:
         response['Access-Control-Allow-Headers'] = 'Cache-Control'
         return response
 
-    def _create_documents_from_text(self) -> Tuple[List[Document], str]:
+    def _create_documents_from_text(self):
+        """
+        Read the Whitepaper Tosi Growth Holding.docx file and store it in DocumentEmbedding as vector database.
+        This method processes the DOCX file, splits it into chunks, and creates embeddings for each chunk.
+        """
+        try:
+            # Path to the whitepaper file
+            whitepaper_path = "Whitepaper Tosi Growth Holding.docx"
+            
+            if not os.path.exists(whitepaper_path):
+                print(f"Error: Whitepaper file not found at {whitepaper_path}")
+                return
+            
+            print(f"Reading whitepaper from: {whitepaper_path}")
+            
+            # Read the DOCX file
+            doc = docx.Document(whitepaper_path)
+            
+            # Extract text from all paragraphs
+            full_text = ""
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():  # Only add non-empty paragraphs
+                    full_text += paragraph.text.strip() + "\n\n"
+            
+            # Also extract text from tables if any
+            for table in doc.tables:
+                for row in table.rows:
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            full_text += cell.text.strip() + "\n"
+                    full_text += "\n"
+            
+            if not full_text.strip():
+                print("Warning: No text content found in the whitepaper file")
+                return
+            
+            print(f"Extracted {len(full_text)} characters from whitepaper")
+            
+            # Create a Document object
+            document = Document(
+                page_content=full_text,
+                metadata={
+                    "source": "Whitepaper Tosi Growth Holding.docx",
+                    "document_type": "whitepaper",
+                    "company": "Tosi Growth Holding",
+                    "extraction_method": "python-docx"
+                }
+            )
+            
+            # Split the document into chunks
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=300,
+                chunk_overlap=100,
+                length_function=len,
+                separators=["\n\n", "\n", ". ", " ", ""]
+            )
+            
+            documents = text_splitter.split_documents([document])
+            print(f"Split document into {len(documents)} chunks")
+            
+            # Store documents in vector database
+            create_document_embedding(documents)
+            
+            print("Successfully processed and stored whitepaper in vector database")
+            
+            # Also save the full content to JSON for backward compatibility
+            self._save_whitepaper_to_json(full_text)
+            
+        except Exception as e:
+            print(f"Error processing whitepaper: {e}")
+            raise
 
-        def read_docx_file(file_path):
-            doc = docx.Document(file_path)
-            full_text = []
-            for para in doc.paragraphs:
-                full_text.append(para.text)
-            return '\n'.join(full_text)
+    def _save_whitepaper_to_json(self, content):
+        """
+        Save the whitepaper content to JSON file for backward compatibility.
+        """
+        try:
+            data = {
+                "content": content,
+                "source": "Whitepaper Tosi Growth Holding.docx",
+                "processed_at": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+            
+            with open('whitepaper_data.json', 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            print("Saved whitepaper content to whitepaper_data.json")
+            
+        except Exception as e:
+            print(f"Error saving whitepaper to JSON: {e}")
 
-        file_path = "Whitepaper Tosi Growth Holding.docx"
-        file_content = read_docx_file(file_path)
-        metadata = {"file_id": 1, "source": "whitepaper", "file_name": file_path}
+    def search_whitepaper_embeddings(self, query: str, top_k: int = 5):
+        """
+        Search the whitepaper embeddings for relevant content based on a query.
+        
+        Args:
+            query: The search query
+            top_k: Number of top results to return
+            
+        Returns:
+            List of relevant document chunks
+        """
+        try:
+            from .models import get_pgvector_client, DocumentEmbedding
+            
+            # Check if we have any embeddings in the database
+            if DocumentEmbedding.objects.count() == 0:
+                print("No embeddings found in database. Using fallback content.")
+                return []
+            
+            # Get the vector store client
+            vector_store = get_pgvector_client()
+            
+            # Search for similar documents
+            results = vector_store.similarity_search(query, k=top_k)
 
-        texts = [Document(page_content=file_content, metadata=metadata)]
-        text_splitter = RecursiveCharacterTextSplitter(
-            separators=[
-                s.replace(r"\,", ",")
-                for s in re.split(r"(?<!\\),", " ")
-            ],
-            chunk_size=300,
-            chunk_overlap=100,
-            add_start_index=True,
-        )   
-        docs = text_splitter.split_documents(texts)
-        create_document_embedding(docs)
-        return docs, file_content
+            print("================================================")
+            print(results)
+            print("================================================")
+            
+            return results
+            
+        except Exception as e:
+            print(f"Error searching whitepaper embeddings: {e}")
+            # Return empty list to fall back to full content
+            return []
