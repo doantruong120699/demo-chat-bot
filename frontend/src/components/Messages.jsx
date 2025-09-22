@@ -3,6 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useStreamingResponse } from '../hooks/useStreamingResponse';
 import { useAuth } from '../hooks/useAuth';
 import { chat } from '../api/chat.js';
+import ReactMarkdown from 'react-markdown';
 
 const HumanMessage = ({ message, userProfile }) => {
     return (
@@ -10,7 +11,7 @@ const HumanMessage = ({ message, userProfile }) => {
             <div className="flex items-end w-auto bg-blue-500 dark:bg-gray-800 m-1 rounded-xl rounded-br-none sm:w-3/4 md:w-auto">
                 <div className="p-2">
                     <div className="text-gray-200">
-                        {message}
+                        <ReactMarkdown>{message}</ReactMarkdown>
                     </div>
                 </div>
             </div>
@@ -54,12 +55,15 @@ const BotMessage = ({ message, isError = false, isLoading = false }) => {
                 <div className="text-xs text-gray-600 dark:text-gray-200">
                     AI Assistant
                 </div>
-                <div className={`whitespace-pre-wrap ${
+                <div className={`${
                     isError 
                         ? 'text-red-700 dark:text-red-200' 
                         : 'text-gray-700 dark:text-gray-200'
                 }`}>
-                    {message || (isError ? 'An error occurred' : '')}
+                    <ReactMarkdown
+                        children={message || (isError ? 'An error occurred' : '')}
+                        skipHtml={false}
+                    />
                 </div>
             </div>
         </div>
@@ -115,8 +119,6 @@ const Messages = ({ chatId }) => {
         const userInput = input.trim();
         setInput('');
         
-        console.log('Sending message:', userInput);
-        
         // Add human message to the messages array
         const userMessage = {
             id: Date.now(),
@@ -137,14 +139,12 @@ const Messages = ({ chatId }) => {
         };
         
         setMessages(prevMessages => [...prevMessages, botMessage]);
-        console.log('Added bot message placeholder:', botMessage);
         
         try {
             await streamResponse({
                 user_input: userInput,
                 chat_id: chatId,
                 onProgress: (result) => {
-                    console.log('Streaming progress:', result);
                     // Update the bot message with streaming content
                     setMessages(prevMessages => 
                         prevMessages.map(msg => 
@@ -156,7 +156,6 @@ const Messages = ({ chatId }) => {
                     scrollToBottom();
                 },
                 onFinish: (result) => {
-                    console.log('Streaming finished:', result);
                     // Final update to the bot message
                     setMessages(prevMessages => 
                         prevMessages.map(msg => 
@@ -219,9 +218,7 @@ const Messages = ({ chatId }) => {
                         </p>
                     </div>
                 ) : (
-                    messages.map((message) => {
-                        console.log('Rendering message:', message);
-                        
+                    messages.map((message) => {                        
                         // Handle different possible sender field names
                         const messageContent = message.message || message.content || '';
                         
@@ -235,7 +232,6 @@ const Messages = ({ chatId }) => {
                                 </div>
                             );
                         } else if (message.sender === 'BOT') {
-                            console.log('Rendering BOT message:', message);
                             return (
                                 <div key={message.id || `bot-${Date.now()}`}>
                                     <BotMessage 

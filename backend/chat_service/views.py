@@ -19,7 +19,7 @@ class ChatHistoryView(ModelViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        return Chat.objects.filter(user=self.request.user, is_deleted=False)
+        return Chat.objects.filter(user=self.request.user, is_deleted=False).order_by("-created_at")
 
     def get_serializer(self, *args, **kwargs):
         if self.action == "list":
