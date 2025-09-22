@@ -1,0 +1,14 @@
+services:
+  frontend:
+    container_name: ai_chat_bot_frontend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3001:80
+    networks:
+      - api_chat_bot_network
+
+networks:
+  api_chat_bot_network: 
+    driver: bridge
