@@ -230,7 +230,7 @@ const Messages = ({ chatId }) => {
                                 <div key={message.id || `human-${Date.now()}`}>
                                     <HumanMessage message={messageContent} userProfile={currentUser} />
                                     <div className="text-xs text-gray-500 text-right mr-2 mb-2">
-                                        {formatTime(message.timestamp)}
+                                        {formatTime(message.created_at || Date.now())}
                                     </div>
                                 </div>
                             );
@@ -245,7 +245,7 @@ const Messages = ({ chatId }) => {
                                     />
                                     {messageContent && (
                                         <div className="text-xs text-gray-500 ml-14 mb-2">
-                                            {formatTime(message.timestamp)}
+                                            {formatTime(message.created_at || Date.now())}
                                         </div>
                                     )}
                                 </div>
@@ -260,7 +260,7 @@ const Messages = ({ chatId }) => {
             </div>
 
             {/* Input Form */}
-            <div className="h-15 p-3 rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800">
+            <div className="rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800">
                 <div className="flex items-center">
                     <div className="p-2 text-gray-600 dark:text-gray-200">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

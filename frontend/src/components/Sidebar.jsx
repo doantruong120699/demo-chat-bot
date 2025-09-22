@@ -66,7 +66,7 @@ const Sidebar = ({
       <div className="flex-1 overflow-y-auto">
         <div className="p-3">
           <h3 className="text-sm font-medium text-gray-500 mb-2">Recent Conversations</h3>
-                      <Conversation 
+            <Conversation 
               onChatSelect={onChatSelect}
               selectedChatId={selectedChatId}
               refreshTrigger={refreshConversations}

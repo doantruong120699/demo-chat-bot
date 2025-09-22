@@ -53,6 +53,27 @@ const Conversation = ({ selectedChatId, onChatSelect, refreshTrigger }) => {
         }
     }
 
+    const handleDeleteChat = async (chatId) => {
+        try {
+            await chat.deleteChat(chatId);
+            console.log('Chat deleted successfully');
+            
+            // Remove the deleted chat from local state
+            setData(prevData => prevData.filter(item => item.id !== chatId));
+            
+            // If the deleted chat was currently selected, navigate to home
+            if (selectedChatId === chatId) {
+                navigate('/', { replace: true });
+                if (onChatSelect) {
+                    onChatSelect(null);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to delete chat:', error);
+            setError('Failed to delete conversation');
+        }
+    }
+
     if (loading) {
         return (
             <div className="p-1">
@@ -104,6 +125,7 @@ const Conversation = ({ selectedChatId, onChatSelect, refreshTrigger }) => {
                     title={item.title || item.message || `Chat ${item.id}`}
                     active={selectedChatId === item.id}
                     onClick={() => handleChatSelect(item.id)}
+                    onDelete={() => handleDeleteChat(item.id)}
                 />
             ))}
         </div>

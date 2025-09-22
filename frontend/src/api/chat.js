@@ -5,6 +5,7 @@ export const chat = {
   sendMessage: (messageData) => api.post('/chat', messageData),
   getHistory: (params) => api.get('/chat-history', { params }),
   getChatDetail: (chatId) => api.get(`/chat-history/${chatId}`),
+  deleteChat: (chatId) => api.delete(`/chat-history/${chatId}`),
   createDocumentEmbedding: (documentData) => api.post('/create-document-embedding', documentData),
 };
 

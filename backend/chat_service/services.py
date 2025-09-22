@@ -51,7 +51,7 @@ class ChatService:
     
     def get_chat_by_id(self, user, chat_id, title=None):
         if not chat_id:
-            chat = Chat.objects.create(user=user, title=title)
+            chat = Chat.objects.create(user=user, title=title[:50] if title else "")
             return chat
         chat = Chat.objects.get(user=user, uuid=chat_id)
         return chat
