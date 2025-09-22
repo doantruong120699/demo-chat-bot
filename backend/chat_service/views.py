@@ -13,6 +13,7 @@ from .models import Chat
 class ChatHistoryView(ModelViewSet):
     permission_classes = [IsAuthenticated]
     lookup_field = "uuid"
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         return Chat.objects.filter(user=self.request.user, is_deleted=False)
@@ -23,8 +24,8 @@ class ChatHistoryView(ModelViewSet):
         elif self.action == "retrieve":
             return ChatHistoryDetailSerializer(*args, **kwargs)
 
-    def list(self, request):
-        return super().list(request)
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
     
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
