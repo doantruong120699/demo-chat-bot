@@ -202,7 +202,7 @@ const Messages = ({ chatId }) => {
     return (
         <div className="flex-grow h-full flex flex-col">
             {/* Messages Container */}
-            <div className="w-full flex-grow my-2 p-2 overflow-y-auto mb-[76px]">
+            <div className="w-full flex-grow my-2 p-2 overflow-y-auto mb-[76px] mt-[73px]">
                 {messages.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
