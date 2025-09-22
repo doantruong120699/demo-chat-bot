@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 export const useStreamingResponse = () => {
   const [loading, setLoading] = useState(false);
 
@@ -7,7 +9,7 @@ export const useStreamingResponse = () => {
     setLoading(true);
     try {
       // Use fetch for streaming response since axios doesn't support streaming
-      const response = await fetch('http://localhost:8000/api/chat', {
+      const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
