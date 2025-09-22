@@ -5,7 +5,7 @@ const Header = ({
   handleLogout,
 }) => {
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+    <header className="bg-white shadow-sm border-b border-gray-200 px-4 py-3 fixed top-0 w-full">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           {!showSidebar && (
