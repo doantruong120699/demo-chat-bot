@@ -8,7 +8,7 @@ const Layout = ({ children, onChatSelect, selectedChatId, refreshConversations }
   const [showSidebar, setShowSidebar] = useState(true);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <Sidebar
         showSidebar={showSidebar}
