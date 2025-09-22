@@ -47,22 +47,9 @@ class ChatView(APIView):
     def post(self, request):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        chat_bot = ChatBot()
+        chat_service = ChatService()
+        return chat_service.chat_interact_db(request, serializer.validated_data)
         
-        # Create a streaming response from the generator
-        def stream_response():
-            for chunk in chat_bot.chat_handler(serializer.validated_data["message"]):
-                yield chunk
-
-        return StreamingHttpResponse(
-            stream_response(),
-            content_type='text/event-stream; charset=utf-8'
-        )
-
-    # def get(self, request):
-    #     text2sql = Text2SQL()
-    #     response = text2sql.chat_handler("How many users are there in the database?")
-    #     return Response(response, status=status.HTTP_200_OK)
 
 class CreateDocumentEmbeddingView(APIView):
     permission_classes = [AllowAny]
