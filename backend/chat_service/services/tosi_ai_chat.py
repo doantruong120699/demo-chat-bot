@@ -4,18 +4,14 @@ import time
 from django.http import StreamingHttpResponse
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from langchain_core.callbacks import BaseCallbackHandler
 from api_chat_bot import settings
 from langchain_community.docstore.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from typing import List, Tuple
-import re
 import docx
-from .models import create_document_embedding, Chat, Message
-from .serializers import ChatHistoryListSerializer, ChatHistoryDetailSerializer
-from agents.chat import ChatBot
+from ..models import create_document_embedding, Chat, Message
+from ..serializers import ChatHistoryListSerializer, ChatHistoryDetailSerializer
 
-class ChatService:
+class TosiAiChatService:
     def __init__(self):
         api_key = settings.OPENAI_API_KEY
         if not api_key:
@@ -49,25 +45,6 @@ class ChatService:
         history = self.get_history_by_chat_id(chat_id)
 
         return self.stream_chat(data, chat, history) 
-    
-    def chat_interact_db(self, request, data):
-        user = request.user
-        chat_id = data.get('chat_id', None)
-        message = data.get('message', None)
-        chat_bot = ChatBot()
-
-        history = self.get_history_by_chat_id(chat_id)
-        chat = self.get_chat_by_id(user, chat_id, message)
-        
-        # Create a streaming response from the generator
-        def stream_response():
-            for chunk in chat_bot.chat_handler(message):
-                yield chunk
-
-        return StreamingHttpResponse(
-            stream_response(),
-            content_type='text/event-stream; charset=utf-8'
-        )
 
     def get_chat_by_id(self, user, chat_id, title=None):
         if not chat_id:
@@ -309,7 +286,7 @@ class ChatService:
             List of relevant document chunks
         """
         try:
-            from .models import get_pgvector_client, DocumentEmbedding
+            from ..models import get_pgvector_client, DocumentEmbedding
             
             # Check if we have any embeddings in the database
             if DocumentEmbedding.objects.count() == 0:

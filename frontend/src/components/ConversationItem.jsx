@@ -1,13 +1,31 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 
 const ConversationItem = ({active, created_at, title, onClick, onDelete}) => {
     const [showMenu, setShowMenu] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const menuRef = useRef(null);
     
     const _class = active ? 'bg-blue-100 border-blue-300' : 'bg-white hover:bg-gray-50';
     
+    // Handle click outside to close menu
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (menuRef.current && !menuRef.current.contains(event.target)) {
+                setShowMenu(false);
+            }
+        };
+
+        if (showMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [showMenu]);
+
     const formatDate = (date) => {
-        return new Date(date).toLocaleString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        return new Date(date).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
     const handleDelete = (e) => {
@@ -36,15 +54,18 @@ const ConversationItem = ({active, created_at, title, onClick, onDelete}) => {
                 onClick={onClick}
             >
                 <div className="flex items-center p-2">
-                    <div className="w-7 h-7 m-1">
+                    {/* <div className="w-7 h-7 m-1">
                         <img className="rounded-full" src="https://cdn.pixabay.com/photo/2017/01/31/21/23/avatar-2027366_960_720.png" alt="avatar"/>
-                    </div>
-                    <div className="flex-grow p-2">
-                        <div className="flex justify-between text-md ">
-                            <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{title}</div>
-                            <div className="flex items-center">
-                                <div className="text-xs text-gray-400 dark:text-gray-300 mr-2">{formatDate(created_at)}</div>
-                                <div className="relative">
+                    </div> */}
+                    <div className="flex-grow">
+                        <div className="flex justify-between text-md">
+                            <div className="flex flex-col gap-1">
+                                <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{title}</div>
+                                <div className="flex items-center">
+                                    <div className="text-[11px] text-gray-400 dark:text-gray-300 mr-2">{formatDate(created_at)}</div>
+                                </div>
+                            </div>
+                            <div className="relative" ref={menuRef}>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -67,7 +88,6 @@ const ConversationItem = ({active, created_at, title, onClick, onDelete}) => {
                                             </button>
                                         </div>
                                     )}
-                                </div>
                             </div>
                         </div>
                     </div>
