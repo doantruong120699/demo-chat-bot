@@ -33,11 +33,11 @@ class ChatService:
         # Configurable streaming delay (in seconds)
         self.streaming_delay = 0.05  # 50ms default delay
     def get_chat_history(self, user):
-        chats = Chat.objects.filter(user=user)
+        chats = Chat.objects.filter(user=user, is_deleted=False)
         return ChatHistoryListSerializer(chats, many=True).data
     
     def get_chat_history_detail(self, chat_id):
-        chat = Chat.objects.get(uuid=chat_id)
+        chat = Chat.objects.get(uuid=chat_id, is_deleted=False)
         return ChatHistoryDetailSerializer(chat).data
         
     def chat(self, request, data):
@@ -53,7 +53,7 @@ class ChatService:
         if not chat_id:
             chat = Chat.objects.create(user=user, title=title[:50] if title else "")
             return chat
-        chat = Chat.objects.get(user=user, uuid=chat_id)
+        chat = Chat.objects.get(user=user, uuid=chat_id, is_deleted=False)
         return chat
     
     def get_history_by_chat_id(self, chat_id):
