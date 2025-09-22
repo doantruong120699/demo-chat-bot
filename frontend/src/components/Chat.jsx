@@ -39,7 +39,7 @@ const Chat = () => {
                         </svg>
                     </div>                    
                 </div>
-                <div className="w-80 h-screen dark:bg-gray-800 bg-gray-100 p-2 hidden md:block">
+                <div className="sidebar h-screen dark:bg-gray-800 bg-gray-100 p-2 hidden md:block">
                     <div className="h-full overflow-y-auto">
                         <div className="text-xl font-extrabold text-gray-600 dark:text-gray-200 p-3">Chikaa</div>
                         <div className="search-chat flex p-3">

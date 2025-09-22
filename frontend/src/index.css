@@ -12,3 +12,11 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.sidebar {
+  width: calc(var(--spacing) * 80);
+}
+
+.main-content {
+  width: calc(100% - var(--spacing) * 80);
+}
