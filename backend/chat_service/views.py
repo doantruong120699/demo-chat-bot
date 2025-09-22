@@ -15,7 +15,7 @@ class ChatHistoryView(ModelViewSet):
     lookup_field = "uuid"
 
     def get_queryset(self):
-        return Chat.objects.filter(user=self.request.user)
+        return Chat.objects.filter(user=self.request.user, is_deleted=False)
 
     def get_serializer(self, *args, **kwargs):
         if self.action == "list":
