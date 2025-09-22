@@ -202,7 +202,7 @@ const Messages = ({ chatId }) => {
     return (
         <div className="flex-grow h-full flex flex-col">
             {/* Messages Container */}
-            <div className="w-full flex-grow my-2 p-2 overflow-y-auto">
+            <div className="w-full flex-grow my-2 p-2 overflow-y-auto mb-[76px]">
                 {messages.length === 0 ? (
                     <div className="text-center py-12">
                         <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -256,7 +256,7 @@ const Messages = ({ chatId }) => {
             </div>
 
             {/* Input Form */}
-            <div className="rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800">
+            <div className="rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800 fixed bottom-0 w-full">
                 <div className="flex items-center">
                     <div className="p-2 text-gray-600 dark:text-gray-200">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
