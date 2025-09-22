@@ -1,6 +1,7 @@
 services:
   db:
     image: ankane/pgvector
+    container_name: ai_chat_bot_db
     volumes:
       - ./postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql
       - postgres_db_api_chat_bot:/var/lib/postgresql/data
@@ -15,7 +16,7 @@ services:
     networks:
       - api_chat_bot_network
   backend:
-
+    container_name: ai_chat_bot_backend
     build:
       context: .
       dockerfile: Dockerfile
