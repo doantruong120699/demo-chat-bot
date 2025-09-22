@@ -3,25 +3,34 @@ import { useState } from "react";
 export const useStreamingResponse = () => {
   const [loading, setLoading] = useState(false);
 
-  const streamResponse = async ({ user_input, onProgress, onFinish }) => {
+  const streamResponse = async ({ user_input, chat_id, onProgress, onFinish, onError }) => {
     setLoading(true);
     try {
-    const response = await fetch('http://localhost:8000/api/chat', {
+      // Use fetch for streaming response since axios doesn't support streaming
+      const response = await fetch('http://localhost:8000/api/chat', {
         method: 'POST',
         headers: {
-            'Accept': '*/*',
-            'Content-Type': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
         },
-        body: JSON.stringify({ message: user_input }),
-    });
+        body: JSON.stringify({ 
+          message: user_input, 
+          chat_id: chat_id 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       let result = "";
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
-      reader.read().then(function processText({ done, value }) {
+      const processText = ({ done, value }) => {
         if (done) {
           onFinish?.(result);
+          setLoading(false);
           return;
         }
 
@@ -41,6 +50,9 @@ export const useStreamingResponse = () => {
                 } else if (json.type === "end") {
                   // End of stream
                   onFinish?.(result);
+                } else if (json.type === "error") {
+                  // Handle error from stream
+                  onError?.(json.error || 'An error occurred');
                 }
               } catch (parseError) {
                 console.error("Error parsing JSON:", parseError);
@@ -50,10 +62,12 @@ export const useStreamingResponse = () => {
         });
 
         return reader.read().then(processText);
-      });
+      };
+
+      reader.read().then(processText);
     } catch (error) {
       console.error("Error calling Chat API:", error);
-    } finally {
+      onError?.(error.message || 'Failed to connect to server');
       setLoading(false);
     }
   };

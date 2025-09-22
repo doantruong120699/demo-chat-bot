@@ -3,7 +3,7 @@ import json
 import time
 from django.http import StreamingHttpResponse
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from langchain_core.callbacks import BaseCallbackHandler
 from api_chat_bot import settings
 from langchain_community.docstore.document import Document
@@ -11,26 +11,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from typing import List, Tuple
 import re
 import docx
-from .models import create_document_embedding
-
-class StreamingCallbackHandler(BaseCallbackHandler):
-    """Custom callback handler for streaming responses."""
-    
-    def __init__(self):
-        self.response_tokens = []
-    
-    def on_llm_new_token(self, token: str, **kwargs):
-        """Called when a new token is generated."""
-        self.response_tokens.append(token)
-    
-    def get_streaming_response(self):
-        """Yield tokens as they are generated."""
-        for token in self.response_tokens:
-            yield f"data: {json.dumps({'content': token, 'type': 'token'})}\n\n"
-        
-        # Send end signal
-        yield f"data: {json.dumps({'type': 'end'})}\n\n"
-
+from .models import create_document_embedding, Chat, Message
+from .serializers import ChatHistoryListSerializer, ChatHistoryDetailSerializer
 
 class ChatService:
     def __init__(self):
@@ -48,10 +30,44 @@ class ChatService:
             verbose=False,
         )
         
-    def chat(self, input_data):
-        return self.stream_chat(input_data)
+        # Configurable streaming delay (in seconds)
+        self.streaming_delay = 0.05  # 50ms default delay
+    def get_chat_history(self, user):
+        chats = Chat.objects.filter(user=user)
+        return ChatHistoryListSerializer(chats, many=True).data
+    
+    def get_chat_history_detail(self, chat_id):
+        chat = Chat.objects.get(uuid=chat_id)
+        return ChatHistoryDetailSerializer(chat).data
+        
+    def chat(self, request, data):
+        user = request.user
+        chat_id = data.get('chat_id', None)
+        message = data.get('message', None)
+        chat = self.get_chat_by_id(user, chat_id, message)
+        history = self.get_history_by_chat_id(chat_id)
 
-    def stream_chat(self, input_data):
+        return self.stream_chat(data, chat, history) 
+    
+    def get_chat_by_id(self, user, chat_id, title=None):
+        if not chat_id:
+            chat = Chat.objects.create(user=user, title=title)
+            return chat
+        chat = Chat.objects.get(user=user, uuid=chat_id)
+        return chat
+    
+    def get_history_by_chat_id(self, chat_id):
+        messages = Message.objects.filter(chat__uuid=chat_id).order_by("created_at")
+        # Build history input for LLM as a list of dicts with role and content
+        history = []
+        for msg in messages:
+            if msg.sender == Message.Sender.HUMAN:
+                history.append({"role": "user", "content": msg.message})
+            else:
+                history.append({"role": "assistant", "content": msg.message})
+        return history
+
+    def stream_chat(self, input_data, chat, history):
         """
         Stream chat response using LangChain and OpenAI with whitepaper context.
         
@@ -61,82 +77,114 @@ class ChatService:
         user_message = input_data.get('message', '')
         
         if not user_message:
-            def error_stream():
-                yield f"data: {json.dumps({'error': 'No message provided', 'type': 'error'})}\n\n"
-            
-            response = StreamingHttpResponse(error_stream(), content_type='text/event-stream')
-            response['Cache-Control'] = 'no-cache'
-            return response
+            return self._create_error_response('No message provided')
 
         def event_stream():
             try:
-                # Get relevant context from vector database
-                relevant_docs = self.search_whitepaper_embeddings(user_message, top_k=3)
-                
-                # Combine relevant context with fallback content
-                context_content = ""
-                if relevant_docs:
-                    context_content = "\n\n".join([doc.page_content for doc in relevant_docs])
-                else:
-                    # Fallback to the full whitepaper content if no relevant chunks found
-                    context_content = ""
-                
-                # Create system message with whitepaper context
-                system_message = f"""You are a helpful AI assistant with access to a whitepaper about Tosi Growth Holding. 
-                Use the following relevant whitepaper content to answer questions accurately and comprehensively:
-
-                {context_content}
-
-                When answering questions:
-                1. Base your responses on the whitepaper content provided above
-                2. If the question is not related to the whitepaper, politely redirect to whitepaper-related topics
-                3. Provide specific information from the whitepaper when possible
-                4. Be helpful and informative while staying within the context of the whitepaper
-                5. If you don't have enough information to answer the question, say so and suggest what information might be available
-                """
-
-                print("=system_message===============================================")
-                print(system_message)
-                print("================================================")
-                
-                # Create messages with system context
-                messages = [
-                    SystemMessage(content=system_message),
-                    HumanMessage(content=user_message)
-                ]
+                # Get relevant context and build messages
+                context_content = self._get_context_content(user_message)
+                system_message = self._build_system_message(context_content)
+                messages = self._build_messages(system_message, history, user_message)
                 
                 # Stream the response
+                output_message = ""
                 for chunk in self.llm.stream(messages):
                     if hasattr(chunk, 'content') and chunk.content:
-                        yield f"data: {json.dumps({'content': chunk.content, 'type': 'token'})}\n\n"
-                    time.sleep(0.01)
+                        output_message += chunk.content
+                        yield self._format_stream_data('token', content=chunk.content)
+                        # Add delay to control streaming speed (adjust value as needed)
+                        time.sleep(self.streaming_delay)  # Use configurable delay
                 
-                # Send end signal
-                yield f"data: {json.dumps({'type': 'end'})}\n\n"
+                # Send end signal and save messages
+                yield self._format_stream_data('end')
+                self._save_conversation_messages(chat, user_message, output_message)
                 
             except Exception as e:
-                # Handle specific OpenAI errors
-                error_message = str(e)
-                
-                if "429" in error_message or "Too Many Requests" in error_message:
-                    error_message = "Rate limit exceeded. Please wait a moment and try again."
-                elif "401" in error_message or "Unauthorized" in error_message:
-                    error_message = "Invalid API key. Please check your OpenAI API key."
-                elif "400" in error_message:
-                    error_message = "Invalid request. Please check your input."
-                elif "500" in error_message:
-                    error_message = "OpenAI service is temporarily unavailable. Please try again later."
-                else:
-                    error_message = f"Error generating response: {error_message}"
-                
-                yield f"data: {json.dumps({'error': error_message, 'type': 'error'})}\n\n"
-                yield f"data: {json.dumps({'type': 'end'})}\n\n"
+                error_message = self._handle_streaming_error(e)
+                yield self._format_stream_data('error', error=error_message)
+                yield self._format_stream_data('end')
 
         response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
         response['Cache-Control'] = 'no-cache'
         response['Access-Control-Allow-Origin'] = '*'
-        response['Access-Control-Allow-Headers'] = 'Cache-Control'
+        response['Access-Control-Allow-Headers'] = 'Cache-Control'        
         return response
+
+    def _get_context_content(self, user_message: str) -> str:
+        """Get relevant context content from vector database."""
+        relevant_docs = self.search_whitepaper_embeddings(user_message, top_k=3)
+        if relevant_docs:
+            return "\n\n".join(doc.page_content for doc in relevant_docs)
+        return ""
+
+    def _build_system_message(self, context_content: str) -> str:
+        """Build the system message with context."""
+        return f"""You are a helpful AI assistant with access to a whitepaper about Tosi Growth Holding. 
+        Use the following relevant whitepaper content to answer questions accurately and comprehensively:
+
+        {context_content}
+
+        When answering questions:
+        1. Base your responses on the whitepaper content provided above
+        2. If the question is not related to the whitepaper, politely redirect to whitepaper-related topics
+        3. Provide specific information from the whitepaper when possible
+        4. Be helpful and informative while staying within the context of the whitepaper
+        5. If you don't have enough information to answer the question, say so and suggest what information might be available
+        """
+
+    def _build_messages(self, system_message: str, history: list, user_message: str) -> list:
+        """Build the complete message list for the LLM."""
+        messages = [SystemMessage(content=system_message)]
+        
+        # Add conversation history
+        for hist_msg in history:
+            if hist_msg["role"] == "user":
+                messages.append(HumanMessage(content=hist_msg["content"]))
+            elif hist_msg["role"] == "assistant":
+                messages.append(AIMessage(content=hist_msg["content"]))
+        
+        # Add current user message
+        messages.append(HumanMessage(content=user_message))
+        return messages
+
+    def _format_stream_data(self, data_type: str, **kwargs) -> str:
+        """Format streaming data as Server-Sent Events."""
+        data = {'type': data_type}
+        data.update(kwargs)
+        return f"data: {json.dumps(data)}\n\n"
+
+    def _handle_streaming_error(self, error: Exception) -> str:
+        """Handle and format streaming errors."""
+        error_message = str(error)
+        
+        if "429" in error_message or "Too Many Requests" in error_message:
+            return "Rate limit exceeded. Please wait a moment and try again."
+        elif "401" in error_message or "Unauthorized" in error_message:
+            return "Invalid API key. Please check your OpenAI API key."
+        elif "400" in error_message:
+            return "Invalid request. Please check your input."
+        elif "500" in error_message:
+            return "OpenAI service is temporarily unavailable. Please try again later."
+        else:
+            return f"Error generating response: {error_message}"
+
+    def _create_error_response(self, error_message: str):
+        """Create an error response for invalid requests."""
+        def error_stream():
+            yield self._format_stream_data('error', error=error_message)
+        
+        response = StreamingHttpResponse(error_stream(), content_type='text/event-stream')
+        response['Cache-Control'] = 'no-cache'
+        return response
+
+    def _save_conversation_messages(self, chat, user_message: str, bot_message: str):
+        """Save both user and bot messages to the database."""
+        self.save_message(chat, user_message, Message.Sender.HUMAN)
+        self.save_message(chat, bot_message, Message.Sender.BOT)
+    
+    def save_message(self, chat, message, sender):
+        Message.objects.create(chat=chat, message=message, sender=sender)
+    
 
     def _create_documents_from_text(self):
         """

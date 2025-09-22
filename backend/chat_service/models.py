@@ -6,6 +6,8 @@ from langchain_openai import OpenAIEmbeddings
 import openai
 import time
 from langchain_postgres import PGVector
+from common.models.base import DateTimeModel, UuidModel, SoftDeleteModel
+from accounts.models.user import User
 
 # Create your models here.
 
@@ -55,3 +57,23 @@ def create_document_embedding(
                     time.sleep(30)
                     continue
                 raise
+
+
+class Chat(UuidModel, DateTimeModel, SoftDeleteModel):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    title = models.CharField(max_length=255, null=True, blank=True)
+
+class Message(UuidModel, DateTimeModel):
+    class Sender(models.TextChoices):
+        HUMAN = "HUMAN", "HUMAN"
+        BOT = "BOT", "BOT"
+
+    chat = models.ForeignKey(Chat, related_name="messages", on_delete=models.CASCADE, null=True, blank=True)
+    parent = models.ForeignKey(
+        "self", null=True, blank=True, related_name="children", on_delete=models.CASCADE
+    )
+    message = models.TextField(null=True, blank=True)
+    sender = models.CharField(max_length=10, choices=Sender.choices, default=Sender.HUMAN)
+
+    def __str__(self):
+        return self.message

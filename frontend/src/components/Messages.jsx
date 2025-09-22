@@ -1,11 +1,13 @@
 /* eslint-disable no-unused-vars */
-import React, { useRef, useState } from 'react'
-import { useStreamingResponse } from '../hooks/useStreamingResponse'
+import React, { useRef, useState, useEffect } from 'react';
+import { useStreamingResponse } from '../hooks/useStreamingResponse';
+import { useAuth } from '../hooks/useAuth';
+import { chat } from '../api/chat.js';
 
-const HumanMessage = ({ message }) => {
+const HumanMessage = ({ message, userProfile }) => {
     return (
         <div className="flex justify-end">
-            <div className="flex items-end w-auto bg-purple-500 dark:bg-gray-800 m-1 rounded-xl rounded-br-none sm:w-3/4 md:w-auto">
+            <div className="flex items-end w-auto bg-blue-500 dark:bg-gray-800 m-1 rounded-xl rounded-br-none sm:w-3/4 md:w-auto">
                 <div className="p-2">
                     <div className="text-gray-200">
                         {message}
@@ -16,274 +18,251 @@ const HumanMessage = ({ message }) => {
     )
 }
 
-const BotMessage = ({ message }) => {
+const BotMessage = ({ message, isError = false, isLoading = false }) => {
+    if (isLoading) {
+        return (
+            <div className="flex items-end w-3/4" >
+                <div className="w-8 m-3 rounded-full" />
+                <div className="p-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6 bg-purple-300 dark:bg-gray-800">
+                    <div className="text-xs text-gray-600 dark:text-gray-200">
+                        AI Assistant
+                    </div>
+                    <div className="text-gray-700 dark:text-gray-200">
+                        <div className="flex items-center space-x-2">
+                            <div className="flex space-x-1">
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                            </div>
+                            <span className="text-sm text-gray-500">Thinking...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    // Always render bot message container, even if empty (for streaming)
     return (
         <div className="flex items-end w-3/4" >
             <div className="w-8 m-3 rounded-full" />
-            <div className="p-3 bg-purple-300 dark:bg-gray-800 mx-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6">
+            <div className={`p-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6 ${
+                isError 
+                    ? 'bg-red-100 dark:bg-red-900 border border-red-200' 
+                    : 'bg-purple-300 dark:bg-gray-800'
+            }`}>
                 <div className="text-xs text-gray-600 dark:text-gray-200">
-                    Bot
+                    AI Assistant
                 </div>
-                <div className="text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
-                    {message}
+                <div className={`whitespace-pre-wrap ${
+                    isError 
+                        ? 'text-red-700 dark:text-red-200' 
+                        : 'text-gray-700 dark:text-gray-200'
+                }`}>
+                    {message || (isError ? 'An error occurred' : '')}
                 </div>
             </div>
         </div>
     )
 }
 
-const Messages = () => {
+const Messages = ({ chatId }) => {
+    const { currentUser } = useAuth();
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
-    const refineInputRef = useRef(null);
-    const { streamResponse, loading } = useStreamingResponse();
+    const messagesEndRef = useRef(null);
+    const { streamResponse, loading } = useStreamingResponse();   
 
-    const scrollToBottom = () => {
-        if (refineInputRef.current) {
-          refineInputRef.current.scrollIntoView({ behavior: "smooth" });
+    useEffect(() => {
+        const fetchChatDetail = async () => {
+            if (!chatId) {
+                setMessages([]);
+                return;
+            }
+            
+            try {
+                const response = await chat.getChatDetail(chatId);
+                console.log('Messages response', response);
+                setMessages(response.data.messages || []);
+            } catch (error) {
+                console.error('Failed to fetch chat detail:', error);
+                setMessages([]);
+            }
         }
-      };
+        fetchChatDetail();
+    }, [chatId]);
 
-    // const handleSendMessage = async () => {
-    //     if (!input.trim()) return;
-        
-    //     const userInput = input.trim();
-    //     setIsLoading(true);
-    //     setHumanMessage(userInput);
-    //     setBotReply('');
-        
-    //     try {
-    //         const response = await fetch('http://localhost:8000/api/chat', {
-    //             method: 'POST',
-    //             headers: {
-    //                 'Accept': '*/*',
-    //                 'Content-Type': 'application/json',
-    //             },
-    //             body: JSON.stringify({ message: userInput }),
-    //         });
+    // Auto-scroll to bottom when new messages arrive
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
 
-    //         if (!response.ok) {
-    //             throw new Error(`HTTP error! status: ${response.status}`);
-    //         }
+    useEffect(() => {
+        scrollToBottom();
+    }, [messages]);
 
-    //         if (!response.body) {
-    //             throw new Error('No response body');
-    //         }
-
-    //         const reader = response.body.getReader();
-    //         let botMessage = '';
-    //         let textEffectTimeout = null;
-
-    //         function updateTypingEffect(fullText) {
-    //             let i = 0;
-    //             function typeNext() {
-    //                 setBotReply(fullText.slice(0, i));
-    //                 i++;
-    //                 if (i <= fullText.length) {
-    //                     textEffectTimeout = setTimeout(typeNext, 12);
-    //                 }
-    //             }
-    //             typeNext();
-    //         }
-
-    //         function read() {
-    //             reader.read().then(({ done, value }) => {
-    //                 if (done) {
-    //                     if (botMessage.trim() !== '') {
-    //                         performTypewriterEffect(botMessage, () => {
-    //                             setMessages(prevMessages => [...prevMessages, { type: 'bot', message: botMessage }]);
-    //                             setIsLoading(false);
-    //                             setHumanMessage('');
-    //                             setBotReply('');
-    //                         });
-    //                     } else {
-    //                         setIsLoading(false);
-    //                         setHumanMessage('');
-    //                         setBotReply('');
-    //                     }
-    //                     return;
-    //                 }
-
-    //                 try {
-    //                     const chunk = new TextDecoder().decode(value);
-    //                     const events = chunk.split('\n\n').filter(event => event.trim());
-                        
-    //                     events.forEach(eventStr => {
-    //                         if (eventStr.startsWith('data:')) {
-    //                             try {
-    //                                 const data = JSON.parse(eventStr.replace('data: ', '').replace('data:', ''));
-    //                                 handleStreamEvent(data);
-    //                             } catch (parseError) {
-    //                                 console.warn('Failed to parse SSE data:', parseError);
-    //                             }
-    //                         }
-    //                     });
-                        
-    //                     read();
-    //                 } catch (decodeError) {
-    //                     console.error('Failed to decode stream chunk:', decodeError);
-    //                     setBotReply('Error processing server response.');
-    //                     setIsLoading(false);
-    //                     setHumanMessage('');
-    //                 }
-    //             }).catch((readError) => {
-    //                 console.error('Error reading stream:', readError);
-    //                 setBotReply('Error reading server response.');
-    //                 setIsLoading(false);
-    //                 setHumanMessage('');
-    //             });
-    //         }
-
-    //         function handleStreamEvent(data) {
-    //             switch (data.type) {
-    //                 case 'token':
-    //                     if (data.token) {
-    //                         botMessage += data.token;
-    //                         if (textEffectTimeout) {
-    //                             clearTimeout(textEffectTimeout);
-    //                         }
-    //                         updateTypingEffect(botMessage);
-    //                     }
-    //                     break;
-    //                 case 'end':
-    //                     setBotReply(botMessage);
-    //                     break;
-    //                 case 'error':
-    //                     if (data.error) {
-    //                         setBotReply(`Error: ${data.error}`);
-    //                         setIsLoading(false);
-    //                         setHumanMessage('');
-    //                     }
-    //                     break;
-    //                 default:
-    //                     console.warn('Unknown event type:', data.type);
-    //             }
-    //         }
-
-    //         function performTypewriterEffect(fullText, onComplete) {
-    //             let i = 0;
-    //             const typeSpeed = 12;
-                
-    //             function typeNext() {
-    //                 setBotReply(fullText.slice(0, i));
-    //                 i++;
-                    
-    //                 if (i <= fullText.length) {
-    //                     textEffectTimeout = setTimeout(typeNext, typeSpeed);
-    //                 } else if (onComplete) {
-    //                     onComplete();
-    //                 }
-    //             }
-                
-    //             typeNext();
-    //         }
-
-    //         setMessages(prevMessages => [...prevMessages, { type: 'human', message: userInput }]);
-            
-    //         read();
-            
-    //         setInput('');
-    //     } catch (err) {
-    //         console.error('Error in handleSendMessage:', err);
-    //         setBotReply('Error connecting to server.');
-    //         setIsLoading(false);
-    //     }
-    // }
+    // Format timestamp
+    const formatTime = (timestamp) => {
+        return new Date(timestamp).toLocaleTimeString([], { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+        });
+    };
 
     const handleSendMessage = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || loading) return;
     
         const userInput = input.trim();
         setInput('');
         
-        // Add human message to the messages array
-        setMessages(prevMessages => [...prevMessages, { type: 'human', message: userInput }]);
+        console.log('Sending message:', userInput);
         
-        await streamResponse({
-            user_input: userInput,
-            onProgress: (result) => {
-                // Update the last bot message or create a new one
-                setMessages(prevMessages => {
-                    const newMessages = [...prevMessages];
-                    const lastMessage = newMessages[newMessages.length - 1];
-                    
-                    if (lastMessage && lastMessage.type === 'bot') {
-                        // Update existing bot message
-                        lastMessage.message = result;
-                        return newMessages;
-                    } else {
-                        // Create new bot message
-                        return [...newMessages, { type: 'bot', message: result }];
-                    }
-                });
-                scrollToBottom();
-            },
-            onFinish: async (result) => {
-            },
-        });
-      };
-    
+        // Add human message to the messages array
+        const userMessage = {
+            id: Date.now(),
+            message: userInput,
+            sender: 'HUMAN',
+            timestamp: new Date().toISOString(),
+        };
+        
+        setMessages(prevMessages => [...prevMessages, userMessage]);
+        
+        // Add placeholder for bot message
+        const botMessageId = Date.now() + 1;
+        const botMessage = {
+            id: botMessageId,
+            message: '',
+            sender: 'BOT',
+            timestamp: new Date().toISOString(),
+        };
+        
+        setMessages(prevMessages => [...prevMessages, botMessage]);
+        console.log('Added bot message placeholder:', botMessage);
+        
+        try {
+            await streamResponse({
+                user_input: userInput,
+                chat_id: chatId,
+                onProgress: (result) => {
+                    console.log('Streaming progress:', result);
+                    // Update the bot message with streaming content
+                    setMessages(prevMessages => 
+                        prevMessages.map(msg => 
+                            msg.id === botMessageId 
+                                ? { ...msg, message: result }
+                                : msg
+                        )
+                    );
+                    scrollToBottom();
+                },
+                onFinish: (result) => {
+                    console.log('Streaming finished:', result);
+                    // Final update to the bot message
+                    setMessages(prevMessages => 
+                        prevMessages.map(msg => 
+                            msg.id === botMessageId 
+                                ? { ...msg, message: result }
+                                : msg
+                        )
+                    );
+                    scrollToBottom();
+                },
+                onError: (error) => {
+                    console.error('Streaming error:', error);
+                    // Handle error by updating the bot message
+                    setMessages(prevMessages => 
+                        prevMessages.map(msg => 
+                            msg.id === botMessageId 
+                                ? { 
+                                    ...msg, 
+                                    message: 'Sorry, I encountered an error. Please try again.',
+                                    isError: true 
+                                }
+                                : msg
+                        )
+                    );
+                }
+            });
+        } catch (error) {
+            console.error('Failed to stream response:', error);
+            // Handle error by updating the bot message
+            setMessages(prevMessages => 
+                prevMessages.map(msg => 
+                    msg.id === botMessageId 
+                        ? { 
+                            ...msg, 
+                            message: 'Sorry, I encountered an error. Please try again.',
+                            isError: true 
+                        }
+                        : msg
+                )
+            );
+        }
+    };
+
     return (
         <div className="flex-grow h-full flex flex-col">
-            <div className="w-full h-15 p-1 bg-purple-600 dark:bg-gray-800 shadow-md rounded-xl rounded-bl-none rounded-br-none">
-                <div className="flex p-2 align-middle items-center">
-                    <div className="p-2 md:hidden rounded-full mr-1 hover:bg-purple-500 text-white">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                        </svg>
-                    </div>
-                    <div className="border rounded-full border-white p-1/2">
-                        <img className="w-14 h-14 rounded-full" src="https://cdn.pixabay.com/photo/2017/01/31/21/23/avatar-2027366_960_720.png" alt="avatar" />
-                    </div>
-                    <div className="flex-grow p-2">
-                        <div className="text-md text-gray-50 font-semibold">Rey Jhon A. Baquirin </div>
-                        <div className="flex items-center">
-                            <div className="w-2 h-2 bg-green-300 rounded-full"></div>
-                            <div className="text-xs text-gray-50 ml-1">
-                                Online
-                            </div>
+            {/* Messages Container */}
+            <div className="w-full flex-grow my-2 p-2 overflow-y-auto">
+                {messages.length === 0 ? (
+                    <div className="text-center py-12">
+                        <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
                         </div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">
+                            Start a conversation
+                        </h3>
+                        <p className="text-gray-500">
+                            Ask me anything! I'm here to help.
+                        </p>
                     </div>
-                    <div className="p-2 text-white cursor-pointer hover:bg-purple-500 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-            <div className="w-full flex-grow bg-gray-100 dark:bg-gray-900 my-2 p-2 overflow-y-auto">
-                {messages.map((message, index) => {
-                    if (message.type === 'bot') {
-                        return <BotMessage key={index} message={message.message} />
-                    } else {
-                        return <HumanMessage key={index} message={message.message} />
-                    }
-                })}
-                {loading && (
-                    <div className="flex items-end w-3/4">
-                        <div className="w-8 m-3 rounded-full" />
-                        <div className="p-3 bg-purple-300 dark:bg-gray-800 mx-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6">
-                            <div className="text-xs text-gray-600 dark:text-gray-200">
-                                Bot
-                            </div>
-                            <div className="text-gray-700 dark:text-gray-200">
-                                <div className="flex items-center space-x-2">
-                                    <div className="flex space-x-1">
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                ) : (
+                    messages.map((message) => {
+                        console.log('Rendering message:', message);
+                        
+                        // Handle different possible sender field names
+                        const messageContent = message.message || message.content || '';
+                        
+                        if (message.sender === 'HUMAN') {
+                            return (
+                                <div key={message.id || `human-${Date.now()}`}>
+                                    <HumanMessage message={messageContent} userProfile={currentUser} />
+                                    <div className="text-xs text-gray-500 text-right mr-2 mb-2">
+                                        {formatTime(message.timestamp)}
                                     </div>
-                                    <span className="text-sm text-gray-500">Thinking...</span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
+                            );
+                        } else if (message.sender === 'BOT') {
+                            console.log('Rendering BOT message:', message);
+                            return (
+                                <div key={message.id || `bot-${Date.now()}`}>
+                                    <BotMessage 
+                                        message={messageContent} 
+                                        isError={message.isError} 
+                                        isLoading={!messageContent && !message.isError && loading}
+                                    />
+                                    {messageContent && (
+                                        <div className="text-xs text-gray-500 ml-14 mb-2">
+                                            {formatTime(message.timestamp)}
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        }
+                        console.log('Unknown message.sender:', message.sender);
+                        return null; // Handle any unexpected sender values
+                    })
                 )}
 
+                <div ref={messagesEndRef} />
             </div>
-            <div className="h-15  p-3 rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800">
+
+            {/* Input Form */}
+            <div className="h-15 p-3 rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800">
                 <div className="flex items-center">
-                    <div className="p-2 text-gray-600 dark:text-gray-200 ">
+                    <div className="p-2 text-gray-600 dark:text-gray-200">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
@@ -292,11 +271,11 @@ const Messages = () => {
                         <input 
                             className="input text-gray-700 dark:text-gray-200 text-sm p-5 focus:outline-none bg-gray-100 dark:bg-gray-800 flex-grow rounded-l-md" 
                             type="text" 
-                            placeholder="Type your message ..." 
+                            placeholder="Type your message..." 
                             value={input} 
                             onChange={(e) => setInput(e.target.value)}
                             onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey && input.trim()) {
+                                if (e.key === 'Enter' && !e.shiftKey && input.trim() && !loading) {
                                     e.preventDefault();
                                     handleSendMessage();
                                 }
@@ -309,9 +288,16 @@ const Messages = () => {
                             }`} 
                             onClick={() => input.trim() && !loading && handleSendMessage()} 
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                            </svg>
+                            {loading ? (
+                                <svg className="w-6 h-6 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -320,4 +306,4 @@ const Messages = () => {
     )
 }
 
-export default Messages
+export default Messages;
