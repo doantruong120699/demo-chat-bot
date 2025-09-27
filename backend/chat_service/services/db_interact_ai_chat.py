@@ -1,4 +1,3 @@
-
 import json
 import time
 from django.http import StreamingHttpResponse
@@ -8,6 +7,7 @@ from ..serializers import ChatHistoryListSerializer, ChatHistoryDetailSerializer
 from agents.text2sql import Text2SQL
 from common.tools.sql_tool import execute_sql_query, connect_to_db
 from openai import OpenAI
+from agents.pscd_agent import PscdAgent
 
 
 class DbInteractAiChatService:
@@ -19,6 +19,7 @@ class DbInteractAiChatService:
         model = "gpt-4o-mini"
 
         self.llm = OpenAI(api_key=settings.OPENAI_API_KEY)
+        self.agent = PscdAgent().agent
 
         # Configurable streaming delay (in seconds)
         self.streaming_delay = 0.05  # 50ms default delay
@@ -45,13 +46,16 @@ class DbInteractAiChatService:
         return self.stream_chat(data, chat, history)
 
     def get_chat_by_id(self, user, chat_id, title=None):
-        if not chat_id:
-            chat = Chat.objects.create(
-                user=user, title=title if title and len(title) <= 50 else title[:50]
-            )
-            return chat
-        chat = Chat.objects.get(user=user, uuid=chat_id, is_deleted=False)
-        return chat
+        return Chat.objects.get_or_create(
+            user=user,
+            uuid=chat_id,
+            is_deleted=False,
+            defaults={
+                "uuid": chat_id,
+                "user": user,
+                "title": title if title and len(title) <= 50 else title[:50],
+            },
+        )[0]
 
     def get_history_by_chat_id(self, chat_id):
         messages = Message.objects.filter(chat__uuid=chat_id).order_by("created_at")
@@ -79,49 +83,26 @@ class DbInteractAiChatService:
         def event_stream():
             try:
                 # Initialize output_message
-                output_message = ""
-
-                # Get relevant context and build messages
                 messages = self._build_messages(history, user_message)
 
-                sql_query = self.text2sql.convert_text_to_sql(messages, user_message)
+                answer_stream = self.agent.invoke({"input": user_message})
                 print("================================================")
-                print(sql_query)
+                print(answer_stream)
                 print("================================================")
-
-                # Execute the query and get results
-                query_results = execute_sql_query(self.conn, sql_query)
-
-                # Generate answer in streaming format
-                answer_prompt = f"""
-                Câu hỏi của người dùng: {input_data}
-                
-                Kết quả truy vấn:
-                {query_results}
-
-                Dựa trên kết quả truy vấn, hãy cung cấp một câu trả lời rõ ràng và ngắn gọn cho câu hỏi của người dùng.
-                Tập trung vào việc trả lời trực tiếp những gì được hỏi, và bao gồm các con số hoặc sự kiện liên quan từ dữ liệu.
-                Nếu kết quả không trả lời trực tiếp câu hỏi, hãy giải thích thông tin nào đã được tìm thấy.
-                Hãy làm cho câu trả lời thân thiện và hấp dẫn hơn.
-                """
 
                 # Stream the answer generation
-                answer_stream = self.llm.chat.completions.create(
-                    model=self.model,
-                    messages=[*messages, {"role": "user", "content": answer_prompt}],
-                    stream=True,
+                # answer_stream = self.llm.chat.completions.create(
+                #     model=self.model,
+                #     messages=[*messages, {"role": "user", "content": answer_prompt}],
+                #     stream=True,
+                # )
+
+                for chunk in answer_stream["output"]:
+                    yield self._format_stream_data("token", content=chunk)
+                    time.sleep(self.streaming_delay)
+                self._save_conversation_messages(
+                    chat, user_message, answer_stream["output"]
                 )
-
-                for chunk in answer_stream:
-                    if chunk.choices[0].delta.content:
-                        output_message += chunk.choices[0].delta.content
-                        yield self._format_stream_data(
-                            "token", content=chunk.choices[0].delta.content
-                        )
-                        time.sleep(self.streaming_delay)  # Use configurable delay
-
-                yield self._format_stream_data("end")
-                self._save_conversation_messages(chat, user_message, output_message)
 
             except Exception as e:
                 print("================================================")
@@ -129,6 +110,10 @@ class DbInteractAiChatService:
                 print("================================================")
                 error_message = self._handle_streaming_error(e)
                 yield self._format_stream_data("error", error=error_message)
+            finally:
+                print("================================================")
+                print("Stream chat completed")
+                print("================================================")
                 yield self._format_stream_data("end")
 
         response = StreamingHttpResponse(
@@ -139,9 +124,7 @@ class DbInteractAiChatService:
         response["Access-Control-Allow-Headers"] = "Cache-Control"
         return response
 
-    def _build_messages(
-        self, history: list, user_message: str
-    ) -> list:
+    def _build_messages(self, history: list, user_message: str) -> list:
         """Build the complete message list for the LLM."""
         system_message = """
         You are a helpful AI assistant for PSCD company. You are developed for PSCD's admin team to interact with the database.

@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "common",
     "accounts",
     "chat_service",
+    "pscds",
 ]
 
 MIDDLEWARE = [

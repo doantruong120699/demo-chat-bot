@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import Layout from '../components/Layout.jsx';
 import Messages from '../components/Messages.jsx';
+import { v4 as uuidv4 } from 'uuid';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -15,6 +16,11 @@ const Home = () => {
   useEffect(() => {
     if (chatId) {
       handleChatSelect(chatId);
+    }
+    else {
+      const newChatId = uuidv4();
+      setSelectedChatId(newChatId);
+      navigate(`/chat/${newChatId}`, { replace: true });
     }
   }, [chatId]);
 
@@ -40,8 +46,9 @@ const Home = () => {
     setSelectedChatId(chatId);
     
     if (!chatId) {
-      // New chat - update URL to home
-      navigate('/', { replace: true });
+      const newChatId = uuidv4();
+      setSelectedChatId(newChatId);
+      navigate(`/chat/${newChatId}`, { replace: true });
     }
   };
 
