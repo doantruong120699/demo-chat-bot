@@ -86,9 +86,6 @@ class DbInteractAiChatService:
                 messages = self._build_messages(history, user_message)
 
                 answer_stream = self.agent.invoke({"input": user_message})
-                print("================================================")
-                print(answer_stream)
-                print("================================================")
 
                 # Stream the answer generation
                 # answer_stream = self.llm.chat.completions.create(
@@ -105,15 +102,9 @@ class DbInteractAiChatService:
                 )
 
             except Exception as e:
-                print("================================================")
-                print(e)
-                print("================================================")
                 error_message = self._handle_streaming_error(e)
                 yield self._format_stream_data("error", error=error_message)
             finally:
-                print("================================================")
-                print("Stream chat completed")
-                print("================================================")
                 yield self._format_stream_data("end")
 
         response = StreamingHttpResponse(

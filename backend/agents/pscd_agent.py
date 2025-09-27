@@ -7,7 +7,7 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from agents.services.pscd_projects import PSCDProjectsService
 from agents.services.pscd_users import PSCDUsersService
 from agents.services.pscd_requests import PSCDRequestsService
-
+from agents.services.pscd_logtime import PSCDLogTimeService
 
 class PscdAgent:
     def __init__(self):
@@ -70,6 +70,7 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
             *PSCDProjectsService().create_tools(),
             *PSCDUsersService().create_tools(),
             *PSCDRequestsService().create_tools(),
+            *PSCDLogTimeService().create_tools(),
         ]
 
     def _create_agent(self, use_memory=False):

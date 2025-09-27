@@ -71,3 +71,10 @@ class DateRangeInput(BaseModel):
     """Input for operations requiring date range"""
     start_date: str = Field(description="Start date in format YYYY-MM-DD")
     end_date: str = Field(description="End date in format YYYY-MM-DD")
+
+
+class DateRangeInputByUser(BaseModel):
+    """Input for operations requiring date range by user"""
+    user_id: int = Field(description="ID of the user")
+    start_date: str = Field(description="Start date in format YYYY-MM-DD")
+    end_date: str = Field(description="End date in format YYYY-MM-DD")

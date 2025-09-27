@@ -21,16 +21,27 @@ class PSCDRequestsService:
     def _get_requests_in_date_range(self, start_date: str, end_date: str) -> str:
         """Get all requests in a specific date range"""
         try:
-            requests = Request.objects.filter(datetime_start__date__gte=start_date, datetime_start__date__lte=end_date).order_by('-created_at')
+            requests = Request.objects.filter(
+                datetime_start__date__gte=start_date, 
+                datetime_start__date__lte=end_date
+            ).order_by('-created_at')
             if not requests:
-                return f"No requests found for date range: {start_date} to {end_date}"
-                
-            result = f"Requests for date range {start_date} to {end_date}:\n"
-            for req in requests:
-                result += f"- User request: {req.user.full_name}, Request ID: {req.id}, Start: {req.datetime_start}, End: {req.datetime_end}, Reason: {req.reason}, Status: {req.status}\n"
-            return result
+                return f"📅 Không tìm thấy yêu cầu nào trong khoảng thời gian: {start_date} đến {end_date}"
+
+            result = f"📋 **DANH SÁCH YÊU CẦU**\n📅 Thời gian: {start_date} ➡️ {end_date}\n"
+            result += "────────────────────────────\n"
+            for idx, req in enumerate(requests, 1):
+                result += (
+                    f"#{idx}. 👤 **Người gửi:** {req.user.full_name}\n"
+                    f"   🆔 Mã yêu cầu: {req.id}\n"
+                    f"   ⏰ Thời gian: {req.datetime_start.strftime('%Y-%m-%d %H:%M')} ➡️ {req.datetime_end.strftime('%Y-%m-%d %H:%M')}\n"
+                    f"   📝 Lý do: {req.reason}\n"
+                    f"   📌 Trạng thái: {req.status}\n"
+                    "────────────────────────────\n"
+                )
+            return result.strip()
         except Exception as e:
-            return f"Error retrieving requests: {str(e)}"
+            return f"❌ Lỗi khi truy xuất yêu cầu: {str(e)}"
         
     def _get_requests_today(self) -> str:
         """Get all requests for today"""

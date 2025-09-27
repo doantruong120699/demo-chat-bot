@@ -25,7 +25,19 @@ class PSCDProjectsService:
         """Get project information by project ID"""
         try:
             project = Project.objects.get(id=project_id)
-            return f"Project Info - ID: {project.id}, Name: {project.name}, Description: {project.description}, Status: {project.status}, Start Date: {project.start_date}, End Date: {project.end_date}, Company ID: {project.company_id}"
+            result = (
+                f"📁 **THÔNG TIN DỰ ÁN**\n"
+                f"────────────────────────────\n"
+                f"🆔 **ID:** {project.id}\n"
+                f"📛 **Tên dự án:** {project.name}\n"
+                f"📝 **Mô tả:** {project.description or 'Không có mô tả'}\n"
+                f"📊 **Trạng thái:** {project.status}\n"
+                f"📅 **Ngày bắt đầu:** {project.start_date}\n"
+                f"⏳ **Ngày kết thúc:** {project.end_date}\n"
+                f"🏢 **Công ty ID:** {project.company_id}\n"
+                f"────────────────────────────"
+            )
+            return result
         except Project.DoesNotExist:
             return "Project not found"
 
