@@ -268,7 +268,7 @@ const Messages = ({ chatId }) => {
                   className="cursor-pointer group rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-100 px-4 py-3 text-left text-gray-700 transition-all duration-200 hover:from-emerald-100 hover:to-green-100 hover:border-emerald-200 hover:shadow-md hover:scale-[1.02] dark:from-emerald-900/20 dark:to-green-900/20 dark:border-emerald-800 dark:text-gray-300 dark:hover:from-emerald-900/30 dark:hover:to-green-900/30"
                   onClick={async () =>
                     await handleClickExampleQuestion(
-                      "Tổng hợp các dự án đang diễn ra tuần vừa qua"
+                      "Dự án Trí Tuệ Siêu Việt đã hoàn thành chưa?"
                     )
                   }
                 >
@@ -286,7 +286,7 @@ const Messages = ({ chatId }) => {
                         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                       />
                     </svg>
-                    &quot;Tổng hợp các dự án đang diễn ra tuần vừa qua&quot;
+                    &quot;Dự án Trí Tuệ Siêu Việt đã hoàn thành chưa?&quot;
                   </span>
                 </button>
                 <button

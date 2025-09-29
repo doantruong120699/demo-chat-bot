@@ -84,15 +84,8 @@ class DbInteractAiChatService:
             try:
                 # Initialize output_message
                 messages = self._build_messages(history, user_message)
-
+                self._load_chat_history_into_agent_memory(messages)
                 answer_stream = self.agent.invoke({"input": user_message})
-
-                # Stream the answer generation
-                # answer_stream = self.llm.chat.completions.create(
-                #     model=self.model,
-                #     messages=[*messages, {"role": "user", "content": answer_prompt}],
-                #     stream=True,
-                # )
 
                 for chunk in answer_stream["output"]:
                     yield self._format_stream_data("token", content=chunk)
@@ -114,6 +107,22 @@ class DbInteractAiChatService:
         response["Access-Control-Allow-Origin"] = "*"
         response["Access-Control-Allow-Headers"] = "Cache-Control"
         return response
+    
+    def _load_chat_history_into_agent_memory(self, messages):
+        """Load chat history into the agent's memory."""
+        if not messages:
+            return
+            
+        # Clear existing memory first
+        if hasattr(self.agent, 'memory') and self.agent.memory:
+            self.agent.memory.clear()
+        
+        # Load history into memory
+        for msg in messages:
+            if msg["role"] == "user":
+                self.agent.memory.chat_memory.add_user_message(msg["content"])
+            elif msg["role"] == "assistant":
+                self.agent.memory.chat_memory.add_ai_message(msg["content"])
 
     def _build_messages(self, history: list, user_message: str) -> list:
         """Build the complete message list for the LLM."""

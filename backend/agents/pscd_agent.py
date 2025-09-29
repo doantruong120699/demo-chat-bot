@@ -9,6 +9,7 @@ from agents.services.pscd_users import PSCDUsersService
 from agents.services.pscd_requests import PSCDRequestsService
 from agents.services.pscd_logtime import PSCDLogTimeService
 
+
 class PscdAgent:
     def __init__(self):
         self.llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=settings.OPENAI_API_KEY)
@@ -73,18 +74,16 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
             *PSCDLogTimeService().create_tools(),
         ]
 
-    def _create_agent(self, use_memory=False):
+    def _create_agent(self):
         # Use custom prompt instead of pulling from hub
         # prompt = hub.pull("hwchase17/openai-tools-agent")
         prompt = self._create_system_prompt()
         agent = create_openai_tools_agent(self.llm, self.tools, prompt)
 
-        memory_instance = None
-        if use_memory:
-            memory_instance = ConversationBufferMemory(
-                memory_key="chat_history",
-                return_messages=True
-            )
+        memory_instance = ConversationBufferMemory(
+            memory_key="chat_history",
+            return_messages=True,
+        )
 
         agent_executor = AgentExecutor(
             agent=agent,
@@ -96,29 +95,6 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
             # early_stopping_method="generate"  # Stop early if needed
         )
         return agent_executor
-
-    def chat(self, message: str, use_memory: bool = False):
-        """
-        Chat interface for the PSCD Agent
-        
-        Args:
-            message (str): User's message/query
-            use_memory (bool): Whether to use conversation memory
-            
-        Returns:
-            str: Agent's response
-        """
-        try:
-            if use_memory and not hasattr(self, '_memory_agent'):
-                self._memory_agent = self._create_agent(use_memory=True)
-                agent = self._memory_agent
-            else:
-                agent = self.agent
-                
-            response = agent.invoke({"input": message})
-            return response.get("output", "Xin lỗi, tôi không thể xử lý yêu cầu này.")
-        except Exception as e:
-            return f"Đã xảy ra lỗi: {str(e)}. Vui lòng thử lại sau."
 
     def get_capabilities(self):
         """Return list of agent capabilities"""
