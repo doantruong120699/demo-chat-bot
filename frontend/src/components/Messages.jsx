@@ -49,7 +49,6 @@ const BotMessage = ({ message, isError = false, isLoading = false }) => {
     );
   }
 
-  // Always render bot message container, even if empty (for streaming)
   return (
     <div className="flex items-end w-3/4">
       <div className="w-8 m-3 rounded-full" />
@@ -73,6 +72,84 @@ const BotMessage = ({ message, isError = false, isLoading = false }) => {
           <ReactMarkdown
             children={message || (isError ? "An error occurred" : "")}
             skipHtml={false}
+            components={{
+              p: ({ node, ...props }) => (
+                <p className="mb-2 leading-relaxed" {...props} />
+              ),
+              a: ({ node, ...props }) => (
+                <a
+                  className="text-blue-200 underline hover:text-blue-400 transition-colors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  {...props}
+                />
+              ),
+              code: ({ node, inline, ...props }) =>
+                inline ? (
+                  <code
+                    className="bg-gray-700 rounded px-1 py-0.5 text-purple-200 text-xs"
+                    {...props}
+                  />
+                ) : (
+                  <pre className="bg-gray-900 rounded-lg p-3 overflow-x-auto my-2 text-xs">
+                    <code {...props} />
+                  </pre>
+                ),
+              ul: ({ node, ...props }) => (
+                <ul className="list-disc ml-6 mb-2" {...props} />
+              ),
+              ol: ({ node, ...props }) => (
+                <ol className="list-decimal ml-6 mb-2" {...props} />
+              ),
+              li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+              blockquote: ({ node, ...props }) => (
+                <blockquote
+                  className="border-l-4 border-blue-400 pl-4 italic text-blue-100 bg-blue-900/30 my-2 py-1 rounded"
+                  {...props}
+                />
+              ),
+              strong: ({ node, ...props }) => (
+                <strong className="font-semibold" {...props} />
+              ),
+              em: ({ node, ...props }) => <em className="italic" {...props} />,
+              hr: () => <hr className="my-3 border-gray-600" />,
+              h1: ({ node, ...props }) => (
+                <h1
+                  className="text-xl font-bold mt-2 mb-1 text-blue-200"
+                  {...props}
+                />
+              ),
+              h2: ({ node, ...props }) => (
+                <h2
+                  className="text-lg font-semibold mt-2 mb-1 text-blue-100"
+                  {...props}
+                />
+              ),
+              h3: ({ node, ...props }) => (
+                <h3
+                  className="text-base font-semibold mt-2 mb-1 text-blue-100"
+                  {...props}
+                />
+              ),
+              table: ({ node, ...props }) => (
+                <table
+                  className="min-w-full border-collapse my-2 bg-gray-800 rounded"
+                  {...props}
+                />
+              ),
+              th: ({ node, ...props }) => (
+                <th
+                  className="border-b border-gray-600 px-2 py-1 text-left text-gray-200"
+                  {...props}
+                />
+              ),
+              td: ({ node, ...props }) => (
+                <td
+                  className="border-b border-gray-700 px-2 py-1 text-gray-100"
+                  {...props}
+                />
+              ),
+            }}
           />
         </div>
       </div>
@@ -106,7 +183,6 @@ const Messages = ({ chatId }) => {
     fetchChatDetail();
   }, [chatId]);
 
-  // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -128,7 +204,6 @@ const Messages = ({ chatId }) => {
 
     setInput("");
 
-    // Add human message to the messages array
     const userMessage = {
       id: Date.now(),
       message: userInput,
@@ -138,7 +213,6 @@ const Messages = ({ chatId }) => {
 
     setMessages((prevMessages) => [...prevMessages, userMessage]);
 
-    // Add placeholder for bot message
     const botMessageId = Date.now() + 1;
     const botMessage = {
       id: botMessageId,

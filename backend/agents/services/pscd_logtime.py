@@ -1,10 +1,8 @@
-from pscds.models import User, Log, TaskUser, TimeInterval, ProjectUser
-from langchain_core.tools import StructuredTool, Tool
-from agents.services.io_models.input import UserIdInput, EmailInput, DateRangeInputByUser
-from django.db.models import Sum, Count, F, ExpressionWrapper, DurationField
+from pscds.models import TimeInterval
+from langchain_core.tools import StructuredTool
+from agents.services.io_models.input import UserIdInput, DateRangeInputByUser
 from django.utils import timezone
 from datetime import timedelta, datetime
-from django.db.models.functions import Extract
 
 
 class PSCDLogTimeService:
@@ -63,13 +61,6 @@ class PSCDLogTimeService:
    • Activity Fill: {avg_activity_fill:.1f}%
    • Mouse Fill: {avg_mouse_fill:.1f}%
    • Keyboard Fill: {avg_keyboard_fill:.1f}%
-
-📋 CHI TIẾT:
-   • Số lần ghi nhận: {interval_count}
-   • Tổng Activity Fill: {total_activity_fill}%
-   • Tổng Mouse Fill: {total_mouse_fill}%
-   • Tổng Keyboard Fill: {total_keyboard_fill}%
-   • Số công việc: {total_jobs}
             """
             
             return result.strip()

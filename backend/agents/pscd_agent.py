@@ -1,6 +1,5 @@
 from api_chat_bot import settings
 from langchain_openai import ChatOpenAI
-from langchain import hub
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.memory import ConversationBufferMemory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -53,6 +52,7 @@ Bạn là PSCD AI Assistant - Trợ lý thông minh chuyên biệt cho hệ th�
 • "Báo cáo hoạt động trong tuần"
 • "Tạo yêu cầu nghỉ phép mới"
 • "Kiểm tra tiến độ dự án hiện tại"
+• "Thống kê thời gian làm việc của nhân viên Y trong tuần trước"             
 
 🚀 SẴN SÀNG HỖ TRỢ:
 Tôi sẵn sàng giúp bạn quản lý và theo dõi mọi hoạt động trong hệ thống PSCD. 
@@ -75,8 +75,6 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
         ]
 
     def _create_agent(self):
-        # Use custom prompt instead of pulling from hub
-        # prompt = hub.pull("hwchase17/openai-tools-agent")
         prompt = self._create_system_prompt()
         agent = create_openai_tools_agent(self.llm, self.tools, prompt)
 
@@ -91,37 +89,6 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
             memory=memory_instance,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=10,  # Limit iterations to prevent long loops
-            # early_stopping_method="generate"  # Stop early if needed
+            max_iterations=10,
         )
         return agent_executor
-
-    def get_capabilities(self):
-        """Return list of agent capabilities"""
-        return {
-            "user_management": [
-                "Tra cứu thông tin người dùng",
-                "Thống kê hoạt động cá nhân",
-                "Quản lý hồ sơ nhân viên"
-            ],
-            "project_management": [
-                "Xem chi tiết dự án",
-                "Theo dõi tiến độ nhiệm vụ",
-                "Phân tích hiệu suất dự án"
-            ],
-            "time_tracking": [
-                "Theo dõi thời gian làm việc",
-                "Báo cáo hoạt động",
-                "Phân tích năng suất"
-            ],
-            "request_management": [
-                "Xử lý yêu cầu nghỉ phép",
-                "Quản lý thông báo",
-                "Tra cứu lịch sử yêu cầu"
-            ],
-            "analytics": [
-                "Báo cáo thống kê",
-                "Phân tích xu hướng",
-                "Dashboard insights"
-            ]
-        }
