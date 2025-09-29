@@ -1,6 +1,6 @@
-from pscds.models import Project, Task, TaskUser, ProjectUser
+from pscds.models import Project, Task, TaskUser, ProjectUser, User
 from langchain_core.tools import StructuredTool, Tool
-from agents.services.io_models.input import ProjectIdInput, UserIdInput, TaskIdInput
+from agents.services.io_models.input import ProjectIdInput, UserFilterInput, ProjectFilterInput, TaskIdInput
 
 class PSCDProjectsService:
     # Project-related methods
@@ -52,25 +52,93 @@ class PSCDProjectsService:
             result += f"- ID: {project.id}, Name: {project.name}, Status: {project.status}, Start: {project.start_date}, End: {project.end_date}\n"
         return result
 
-    def _get_projects_by_user(self, user_id: int) -> str:
-        """Get all projects assigned to a specific user"""
-        try:
-            project_users = ProjectUser.objects.filter(user_id=user_id)
-            if not project_users:
-                return f"No projects found for user ID: {user_id}"
+    def _get_projects_by_user(self, user_id: int = None, email: str = None, full_name: str = None) -> str:
+        """
+        Get all projects assigned to a specific user.
+        
+        Args:
+            user_id (int, optional): User ID
+            email (str, optional): User email address
+            full_name (str, optional): User full name
             
-            result = f"Projects for User ID {user_id}:\n"
-            for pu in project_users:
-                project = pu.project
-                result += f"- ID: {project.id}, Name: {project.name}, Role ID: {self._mapping_role_id_to_name(pu.role_id)}, Status: {project.status}\n"
-            return result
-        except Exception as e:
-            return f"Error retrieving projects for user: {str(e)}"
+        Returns:
+            str: Formatted string with project information
+            
+        Note: At least one parameter must be provided.
+        """
 
-    def _get_project_members(self, project_id: int) -> str:
+        # Validate that at least one parameter is provided
+        if not any([user_id, email, full_name]):
+            return "Error: At least one of user_id, email, or full_name must be provided."
+
+        user = None
+
+        if user_id:
+            user = User.objects.filter(id=user_id).first()
+            if not user:
+                return f"User not found with ID: {user_id}"
+        elif email:
+            user = User.objects.filter(email__iexact=email.strip()).first()
+            if not user:
+                return f"User not found with email: {email}"
+        elif full_name:
+            user = User.objects.filter(full_name__iexact=full_name.strip()).first()
+            if not user:
+                return f"User not found with full name: {full_name}"
+
+        if not user:
+            return "User not found with the provided identifier."
+
+        try:
+            # Get all project assignments for this user
+            project_users = ProjectUser.objects.filter(user_id=user.id).select_related('project')
+            
+            if not project_users:
+                return f"📋 **KHÔNG CÓ DỰ ÁN**\n────────────────────────────\nNgười dùng '{user.full_name}' (ID: {user.id}) chưa được gán vào dự án nào."
+            
+            # Format the result with better structure
+            result = (
+                f"📋 **DỰ ÁN CỦA NGƯỜI DÙNG**\n"
+                f"────────────────────────────\n"
+                f"👤 **Người dùng:** {user.full_name}\n"
+                f"🆔 **ID:** {user.id}\n"
+                f"📧 **Email:** {user.email}\n"
+                f"📊 **Tổng số dự án:** {project_users.count()}\n"
+                f"────────────────────────────\n"
+            )
+            
+            for i, pu in enumerate(project_users, 1):
+                project = pu.project
+                role_name = self._mapping_role_id_to_name(pu.role_id)
+                
+                result += (
+                    f"**{i}. {project.name}**\n"
+                    f"   🆔 ID: {project.id}\n"
+                    f"   📊 Trạng thái: {project.status}\n"
+                    f"   👤 Vai trò: {role_name}\n"
+                    f"   📅 Bắt đầu: {project.start_date}\n"
+                    f"   ⏳ Kết thúc: {project.end_date}\n"
+                    f"   📝 Mô tả: {project.description or 'Không có mô tả'}\n"
+                    f"   ────────────────────────────\n"
+                )
+            
+            return result
+            
+        except Exception as e:
+            return f"❌ **LỖI**\n────────────────────────────\nKhông thể lấy thông tin dự án: {str(e)}"
+
+    def _get_project_members(self, project_name: str = None, project_id: int = None) -> str:
         """Get all members of a specific project"""
         try:
-            project_users = ProjectUser.objects.filter(project_id=project_id)
+            if project_name:
+                project = Project.objects.get(name=project_name)
+                project_id = project.id
+            elif project_id:
+                project = Project.objects.get(id=project_id)
+            else:
+                return "Error: At least one of project_name or project_id must be provided."
+                
+            project_users = ProjectUser.objects.filter(project_id=project_id).select_related('user')
             if not project_users:
                 return f"No members found for project ID: {project_id}"
             
@@ -90,9 +158,17 @@ class PSCDProjectsService:
         except Task.DoesNotExist:
             return "Task not found"
 
-    def _get_tasks_by_project(self, project_id: int) -> str:
+    def _get_tasks_by_project(self, project_name: str = None, project_id: int = None) -> str:
         """Get all tasks for a specific project"""
         try:
+            if project_name:
+                project = Project.objects.get(name=project_name)
+                project_id = project.id
+            elif project_id:
+                project = Project.objects.get(id=project_id)
+            else:
+                return "Error: At least one of project_name or project_id must be provided."
+                
             tasks = Task.objects.filter(project_id=project_id)
             if not tasks:
                 return f"No tasks found for project ID: {project_id}"
@@ -104,9 +180,29 @@ class PSCDProjectsService:
         except Exception as e:
             return f"Error retrieving tasks: {str(e)}"
 
-    def _get_tasks_by_user(self, user_id: int) -> str:
+    def _get_tasks_by_user(self, user_id: int = None, email: str = None, full_name: str = None) -> str:
         """Get all tasks assigned to a specific user"""
         try:
+            if not any([user_id, email, full_name]):
+                return "Error: At least one of user_id, email, or full_name must be provided."
+            
+            user = None
+            if user_id:
+                user = User.objects.filter(id=user_id).first()
+                if not user:
+                    return f"User not found with ID: {user_id}"
+            elif email:
+                user = User.objects.filter(email__iexact=email.strip()).first()
+                if not user:
+                    return f"User not found with email: {email}"
+            elif full_name:
+                user = User.objects.filter(full_name__iexact=full_name.strip()).first()
+                if not user:
+                    return f"User not found with full name: {full_name}"
+            
+            if not user:
+                return "User not found with the provided identifier."
+            
             task_users = TaskUser.objects.filter(user_id=user_id)
             if not task_users:
                 return f"No tasks found for user ID: {user_id}"
@@ -156,17 +252,16 @@ class PSCDProjectsService:
             StructuredTool.from_function(
                 func=self._get_projects_by_user,
                 name="get_projects_by_user",
-                description="Get all projects assigned to a specific user",
-                args_schema=UserIdInput
+                description="Get all projects assigned to a specific user. Can search by user_id, email, or full_name. At least one parameter must be provided.",
+                args_schema=UserFilterInput
             ),
 
             StructuredTool.from_function(
                 func=self._get_project_members,
                 name="get_project_members",
                 description="Get all members of a specific project",
-                args_schema=ProjectIdInput
+                args_schema=ProjectFilterInput
             ),
-            
             
             StructuredTool.from_function(
                 func=self._get_project_statistics,
@@ -175,18 +270,17 @@ class PSCDProjectsService:
                 args_schema=ProjectIdInput
             ),
             
-            
             StructuredTool.from_function(
                 func=self._get_tasks_by_project,
                 name="get_tasks_by_project",
                 description="Get all tasks for a specific project",
-                args_schema=ProjectIdInput
+                args_schema=ProjectFilterInput
             ),
             StructuredTool.from_function(
                 func=self._get_tasks_by_user,
                 name="get_tasks_by_user",
                 description="Get all tasks assigned to a specific user",
-                args_schema=UserIdInput
+                args_schema=UserFilterInput
             ),
             
             StructuredTool.from_function(
