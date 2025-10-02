@@ -107,3 +107,7 @@ class ProjectFilterInput(BaseModel):
                 raise ValueError("At least one of project_id, project_name must be provided")
             return values
 
+
+class ProjectChartInput(BaseModel):
+    """Input for getting project chart"""
+    project_id: int = Field(description="ID of the project")

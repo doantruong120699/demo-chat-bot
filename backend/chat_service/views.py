@@ -11,6 +11,7 @@ from rest_framework.viewsets import ModelViewSet
 from .models import Chat
 from .services.tosi_ai_chat import TosiAiChatService
 from .services.db_interact_ai_chat import DbInteractAiChatService
+from django.http import StreamingHttpResponse
 
 
 class ChatHistoryView(ModelViewSet):
@@ -51,7 +52,17 @@ class ChatView(APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         chat_service = DbInteractAiChatService()
-        return chat_service.chat(request, serializer.validated_data)
+
+        response = StreamingHttpResponse(
+            chat_service.chat(request, serializer.validated_data),
+            content_type="text/event-stream",
+        )
+        response["Cache-Control"] = "no-cache"
+        response["Access-Control-Allow-Origin"] = "*"
+        response["Access-Control-Allow-Headers"] = "Cache-Control"
+
+        return response
+        # return chat_service.chat(request, serializer.validated_data)
 
 
 class CreateDocumentEmbeddingView(APIView):

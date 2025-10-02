@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export const useStreamingResponse = () => {
   const [loading, setLoading] = useState(false);
 
-  const streamResponse = async ({ user_input, chat_id, onProgress, onFinish, onError }) => {
+  const streamResponse = async ({ user_input, chat_id, onProgress, onFinish, onError, onGenerateImage = null, onGenerateTable = null }) => {
     setLoading(true);
     try {
       // Use fetch for streaming response since axios doesn't support streaming
@@ -40,26 +40,20 @@ export const useStreamingResponse = () => {
         const lines = chunk.split("\n").filter((line) => line.trim() !== "");
 
         lines.forEach((line) => {
-          if (line.startsWith("data: ")) {
-            const jsonString = line.slice(6);
-            if (jsonString.trim() !== "[DONE]") {
-              try {
-                const json = JSON.parse(jsonString);
-                // Handle new response format with token and type fields
-                if (json.type === "token" && json.content) {
-                  result += json.content;
-                  onProgress?.(result);
-                } else if (json.type === "end") {
-                  // End of stream
-                  onFinish?.(result);
-                } else if (json.type === "error") {
-                  // Handle error from stream
-                  onError?.(json.error || 'An error occurred');
-                }
-              } catch (parseError) {
-                console.error("Error parsing JSON:", parseError);
-              }
-            }
+          const json = JSON.parse(line.slice(6));
+          if (json.type === "token") {
+            result += json.content;
+            onProgress?.({ type: "token", content: result });
+          } else if (json.type === "html") {
+            onProgress?.({ type: "html", content: json.content });
+          } else if (json.type === "end") {
+            onFinish?.({ type: "end", content: result });
+          } else if (json.type === "error") {
+            onError?.(json.error || 'An error occurred');
+          } else if (json.type === "image") {
+            onGenerateImage?.({ type: "image", content: json.content });
+          } else if (json.type === "table") {
+            onGenerateTable?.({ type: "table", content: json.content });
           }
         });
 

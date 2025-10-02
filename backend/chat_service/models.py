@@ -74,6 +74,7 @@ class Message(UuidModel, DateTimeModel):
     )
     message = models.TextField(null=True, blank=True)
     sender = models.CharField(max_length=10, choices=Sender.choices, default=Sender.HUMAN)
+    html_message = models.TextField(null=True, blank=True)
 
     def __str__(self):
         return self.message
