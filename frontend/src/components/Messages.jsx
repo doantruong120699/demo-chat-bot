@@ -5,6 +5,54 @@ import { useAuth } from "../hooks/useAuth";
 import { chat } from "../api/chat.js";
 import ReactMarkdown from "react-markdown";
 
+const HtmlMessage = ({ message }) => {
+  return <div dangerouslySetInnerHTML={{ __html: message }} />;
+};
+
+// const HtmlMessage = ({ message }) => {
+//   return (
+//     <iframe
+//       sandbox="allow-scripts"
+//       srcDoc={message}
+//       style={{ width: "100%", height: "300px", border: "none" }}
+//     />
+//   );
+// };
+
+const DelayedRender = ({ delay, children }) => {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setShow(true), delay);
+    return () => clearTimeout(timer);
+  }, [delay]);
+  return show ? children : (
+    <div className="my-4 p-4 bg-gray-900 rounded-lg shadow-md">
+      <div className="flex justify-center items-center h-32">
+        <svg
+          className="animate-spin h-6 w-6 text-gray-400"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            className="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="4"
+          ></circle>
+          <path
+            className="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+            ></path>
+          </svg>
+        </div>
+    </div>
+  );
+};
+
 const HumanMessage = ({ message, userProfile }) => {
   return (
     <div className="flex justify-end">
@@ -19,11 +67,10 @@ const HumanMessage = ({ message, userProfile }) => {
   );
 };
 
-const BotMessage = ({ message, isError = false, isLoading = false }) => {
+const BotMessage = ({ message, isError = false, isLoading = false, htmlMessage = null, imageMessage = null, tableMessage = null }) => {
   if (isLoading) {
     return (
-      <div className="flex items-end w-3/4">
-        <div className="w-8 m-3 rounded-full" />
+      <div className="flex flex-col w-3/4 ml-3">
         <div className="p-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6 bg-purple-300 dark:bg-gray-800">
           <div className="text-xs text-gray-600 dark:text-gray-200">
             AI Assistant
@@ -49,9 +96,31 @@ const BotMessage = ({ message, isError = false, isLoading = false }) => {
     );
   }
 
+  const onSaveImage = async () => { 
+    const { toPng } = await import('html-to-image');
+    const htmlElement = document.querySelector('.html-message-container');
+    if (htmlElement) {
+      const dataUrl = await toPng(htmlElement);
+      const link = document.createElement('a');
+      link.download = 'html-message.png';
+      link.href = dataUrl;
+      link.click();
+    } else {
+      alert('Could not find HTML message to save.');
+    }
+  };
+
+  const handleSaveImage = async () => {
+    try {
+      await onSaveImage();
+    } catch (err) {
+      alert('Failed to save image');
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="flex items-end w-3/4">
-      <div className="w-8 m-3 rounded-full" />
+    <div className="flex flex-col w-3/4 ml-3">
       <div
         className={`p-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6 ${
           isError
@@ -70,7 +139,7 @@ const BotMessage = ({ message, isError = false, isLoading = false }) => {
           }`}
         >
           <ReactMarkdown
-            children={message || (isError ? "An error occurred" : "")}
+            children={message || (isError ? "An error occurred. Please try again." : "")}
             skipHtml={false}
             components={{
               p: ({ node, ...props }) => (
@@ -153,6 +222,81 @@ const BotMessage = ({ message, isError = false, isLoading = false }) => {
           />
         </div>
       </div>
+      {htmlMessage && (
+        <div className="relative">
+          {htmlMessage && (
+            <DelayedRender delay={1000}>
+              <HtmlMessage message={htmlMessage} />
+            </DelayedRender>
+          )}
+          <button
+            className="absolute top-8 right-5 px-1 text-white rounded transition hover:scale-105 hover:bg-white hover:text-black cursor-pointer"
+            onClick={handleSaveImage}
+          >
+          <span className="inline-flex items-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5 inline-block"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
+              />
+            </svg>
+          </span>
+          </button>
+        </div>
+      )}
+     
+      {tableMessage && (
+        <div className="relative overflow-x-auto my-4">
+          <table className="min-w-[300px] border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm bg-white dark:bg-gray-900">
+            <tbody>
+              {tableMessage.map((row, rowIndex) => (
+                <tr
+                  key={rowIndex}
+                  className={
+                    rowIndex === 0
+                      ? "bg-gray-100 dark:bg-gray-800 font-semibold"
+                      : rowIndex % 2 === 0
+                      ? "bg-gray-50 dark:bg-gray-800"
+                      : "bg-white dark:bg-gray-900"
+                  }
+                >
+                  {row.map((cell, cellIndex) =>
+                    rowIndex === 0 ? (
+                      <th
+                        key={cellIndex}
+                        className="px-4 py-2 border-b border-gray-300 dark:border-gray-700 text-left text-gray-700 dark:text-gray-200"
+                      >
+                        {cell}
+                      </th>
+                    ) : (
+                      <td
+                        key={cellIndex}
+                        className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-100"
+                      >
+                        {cell}
+                      </td>
+                    )
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {imageMessage && (
+        <div className="relative">
+          <img src={imageMessage} alt="Image" className="w-full h-auto" />
+        </div>
+      )}
     </div>
   );
 };
@@ -162,6 +306,9 @@ const Messages = ({ chatId }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
+  // const [htmlMessage, setHtmlMessage] = useState("");
+  const [imageMessage, setImageMessage] = useState("");
+  const [tableMessage, setTableMessage] = useState([]);
   const { streamResponse, loading } = useStreamingResponse();
 
   useEffect(() => {
@@ -190,14 +337,6 @@ const Messages = ({ chatId }) => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // Format timestamp
-  const formatTime = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
 
   const handleSendMessage = async (userInput = null) => {
     if (!userInput || loading) return;
@@ -231,10 +370,26 @@ const Messages = ({ chatId }) => {
           // Update the bot message with streaming content
           setMessages((prevMessages) =>
             prevMessages.map((msg) =>
-              msg.id === botMessageId ? { ...msg, message: result } : msg
+              msg.id === botMessageId ? { ...msg, message: result.content } : msg
             )
           );
+          if (result.type === "html") {
+            // setHtmlMessage(result.content);
+            setMessages((prevMessages) =>
+              prevMessages.map((msg) =>
+                msg.id === botMessageId ? { ...msg, html_message: result.content } : msg
+              )
+            );
+          }
           scrollToBottom();
+        },
+        onGenerateImage: (result) => {
+          setImageMessage("http://localhost:8000/media/" + result.content);
+        },
+        onGenerateTable: (result) => {
+          const valid = result.content.replace(/'/g, '"');
+          const data = JSON.parse(valid);
+          setTableMessage(data);
         },
         onFinish: (result) => {
           // Final update to the bot message
@@ -277,6 +432,8 @@ const Messages = ({ chatId }) => {
       );
     }
   };
+
+  console.log(tableMessage)
 
   const handleClickExampleQuestion = async (question) => {
     setInput(question);
@@ -392,7 +549,7 @@ const Messages = ({ chatId }) => {
                   className="cursor-pointer group rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-100 px-4 py-3 text-left text-gray-700 transition-all duration-200 hover:from-amber-100 hover:to-yellow-100 hover:border-amber-200 hover:shadow-md hover:scale-[1.02] dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-800 dark:text-gray-300 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/30"
                   onClick={async () =>
                     await handleClickExampleQuestion(
-                      "Dự án Tosi Grow Holding có bao nhiêu người tham gia?"
+                      "Thống kê dự án Tosi Grow Holding"
                     )
                   }
                 >
@@ -410,8 +567,7 @@ const Messages = ({ chatId }) => {
                         d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
                       />
                     </svg>
-                    &quot;Dự án Tosi Grow Holding có bao nhiêu người tham
-                    gia?&quot;
+                    &quot;Thống kê dự án Tosi Grow Holding&quot;
                   </span>
                 </button>
               </div>
@@ -429,9 +585,6 @@ const Messages = ({ chatId }) => {
                     message={messageContent}
                     userProfile={currentUser}
                   />
-                  <div className="text-xs text-gray-500 text-right mr-2 mb-2">
-                    {formatTime(message.created_at || Date.now())}
-                  </div>
                 </div>
               );
             } else if (message.sender === "BOT") {
@@ -441,12 +594,10 @@ const Messages = ({ chatId }) => {
                     message={messageContent}
                     isError={message.isError}
                     isLoading={!messageContent && !message.isError && loading}
+                    htmlMessage={message.html_message}
+                    imageMessage={imageMessage}
+                    tableMessage={tableMessage}
                   />
-                  {messageContent && (
-                    <div className="text-xs text-gray-500 ml-14 mb-2">
-                      {formatTime(message.created_at || Date.now())}
-                    </div>
-                  )}
                 </div>
               );
             }

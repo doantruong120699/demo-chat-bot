@@ -286,7 +286,8 @@ LOGGING = {
         "apscheduler": {"handlers": ["console"], "level": "ERROR", "propagate": True},
         "": {
             "handlers": ["console"],
-            "level": "DEBUG" if DEBUG else "INFO",
+            # "level": "DEBUG" if DEBUG else "INFO",
+            "level": "INFO",
             "propagate": True,
         },
     },

@@ -7,13 +7,24 @@ from agents.services.pscd_projects import PSCDProjectsService
 from agents.services.pscd_users import PSCDUsersService
 from agents.services.pscd_requests import PSCDRequestsService
 from agents.services.pscd_logtime import PSCDLogTimeService
-
-
+from queue import Queue
 class PscdAgent:
-    def __init__(self):
-        self.llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=settings.OPENAI_API_KEY)
+    def __init__(self, callbacks=None, queue: Queue = None):
+        self.callbacks = callbacks
+        self.queue = queue
+        self.llm = ChatOpenAI(
+            model_name="gpt-4o-mini", 
+            api_key=settings.OPENAI_API_KEY, 
+            streaming=True, 
+            callbacks=self.callbacks
+        )
+
         self.tools = self._create_tools()
         self.agent = self._create_agent()
+
+    def _send(self, type_, content=None):
+        for cb in self.callbacks:
+            cb.send(type_, content)
 
     def _create_system_prompt(self):
         """Create custom system prompt for PSCD AI Assistant"""
@@ -68,11 +79,24 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
     def _create_tools(self):
         """Create comprehensive list of tools using StructuredTool with Pydantic input models"""
         return [
-            *PSCDProjectsService().create_tools(),
+            *PSCDProjectsService(self.queue).create_tools(),
             *PSCDUsersService().create_tools(),
             *PSCDRequestsService().create_tools(),
             *PSCDLogTimeService().create_tools(),
         ]
+
+    def decision_draw_chart(self, user_input: str) -> bool:
+        if not user_input:
+            return False
+        prompt = ("Dựa trên nội dung của user input, hãy quyết định xem có cần vẽ biểu đồ hay không. "
+                  "Trả về 'yes' nếu cần, 'no' nếu không. "
+                  f"User input: \"{user_input.strip()}\"")
+        try:
+            llm_response = self.llm.invoke(prompt)
+            answer = str(llm_response).strip().lower()
+            return answer.startswith("yes")
+        except Exception:
+            return False
 
     def _create_agent(self):
         prompt = self._create_system_prompt()
@@ -90,5 +114,6 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=10,
+            callbacks=self.callbacks,
         )
         return agent_executor
