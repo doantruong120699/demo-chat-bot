@@ -1,32 +1,42 @@
 import json
 import time
+import threading
 from django.http import StreamingHttpResponse
-from api_chat_bot import settings
 from ..models import Chat, Message
 from ..serializers import ChatHistoryListSerializer, ChatHistoryDetailSerializer
-from agents.text2sql import Text2SQL
-from common.tools.sql_tool import execute_sql_query, connect_to_db
-from openai import OpenAI
 from agents.pscd_agent import PscdAgent
+from langchain_core.callbacks import BaseCallbackHandler
+from queue import Queue
+
+
+class StreamingCallbackHandler(BaseCallbackHandler):
+    def __init__(self, queue: Queue):
+        self.queue = queue
+        self.finished = False
+
+    def send(self, event_type: str, content=None):
+        self.queue.put({"type": event_type, "content": content})
+
+    def on_chain_start(self, *args, **kwargs):
+        self.queue.put({"type": "start"})
+
+    def on_llm_new_token(self, token: str, **kwargs):
+        if "image" in token:
+            self.queue.put({"type": "image", "content": token})
+        if "table" in token:
+            self.queue.put({"type": "table", "content": token})
+        else:
+            self.queue.put({"type": "token", "content": token})
+
+    def on_chain_end(self, *args, **kwargs):
+        self.queue.put({"type": "end"})
 
 
 class DbInteractAiChatService:
     def __init__(self):
-        api_key = settings.OPENAI_API_KEY
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
-
-        model = "gpt-4o-mini"
-
-        self.llm = OpenAI(api_key=settings.OPENAI_API_KEY)
-        self.agent = PscdAgent().agent
-
-        # Configurable streaming delay (in seconds)
-        self.streaming_delay = 0.05  # 50ms default delay
-
-        self.text2sql = Text2SQL(model=model)
-        self.conn = connect_to_db()
-        self.model = model
+        self.queue = Queue()
+        self.callback_handler = StreamingCallbackHandler(self.queue)
+        self.agent = PscdAgent(callbacks=[self.callback_handler], queue=self.queue).agent
 
     def get_chat_history(self, user):
         chats = Chat.objects.filter(user=user, is_deleted=False)
@@ -39,11 +49,38 @@ class DbInteractAiChatService:
     def chat(self, request, data):
         user = request.user
         chat_id = data.get("chat_id", None)
-        message = data.get("message", None)
-        chat = self.get_chat_by_id(user, chat_id, message)
+        user_message = data.get("message", "")
+        chat = self.get_chat_by_id(user, chat_id, user_message)
         history = self.get_history_by_chat_id(chat_id)
+        extra_data = None
 
-        return self.stream_chat(data, chat, history)
+        self._load_chat_history_into_agent_memory(self.agent, history)
+
+        # Start the agent execution in a separate thread to allow streaming
+        def run_agent():
+            try:
+                result = self.agent.invoke({"input": user_message})
+                self._save_conversation_messages(chat, user_message, result["output"], extra_data)
+            except Exception as e:
+                self.callback_handler.send("error", str(e))
+
+        # Start agent in background thread
+        agent_thread = threading.Thread(target=run_agent)
+        agent_thread.start()
+
+        # Stream events from the callback handler
+        while True:
+            try:
+                event = self.callback_handler.queue.get(timeout=1)
+                yield f"data: {json.dumps(event)}\n\n"
+                if event["type"] == "extra_data":
+                    extra_data = event["content"]
+                if event["type"] == "end" or event["type"] == "error":
+                    break
+            except:
+                # Check if agent thread is still running
+                if not agent_thread.is_alive():
+                    break
 
     def get_chat_by_id(self, user, chat_id, title=None):
         return Chat.objects.get_or_create(
@@ -68,61 +105,21 @@ class DbInteractAiChatService:
                 history.append({"role": "assistant", "content": msg.message})
         return history
 
-    def stream_chat(self, input_data, chat, history):
-        """
-        Stream chat response using LangChain and OpenAI with whitepaper context.
-
-        Args:
-            input_data: Dictionary containing user input, typically {'message': 'user message'}
-        """
-        user_message = input_data.get("message", "")
-
-        if not user_message:
-            return self._create_error_response("No message provided")
-
-        def event_stream():
-            try:
-                # Initialize output_message
-                messages = self._build_messages(history, user_message)
-                self._load_chat_history_into_agent_memory(messages)
-                answer_stream = self.agent.invoke({"input": user_message})
-
-                for chunk in answer_stream["output"]:
-                    yield self._format_stream_data("token", content=chunk)
-                    time.sleep(self.streaming_delay)
-                self._save_conversation_messages(
-                    chat, user_message, answer_stream["output"]
-                )
-
-            except Exception as e:
-                error_message = self._handle_streaming_error(e)
-                yield self._format_stream_data("error", error=error_message)
-            finally:
-                yield self._format_stream_data("end")
-
-        response = StreamingHttpResponse(
-            event_stream(), content_type="text/event-stream"
-        )
-        response["Cache-Control"] = "no-cache"
-        response["Access-Control-Allow-Origin"] = "*"
-        response["Access-Control-Allow-Headers"] = "Cache-Control"
-        return response
-    
-    def _load_chat_history_into_agent_memory(self, messages):
+    def _load_chat_history_into_agent_memory(self, agent, messages):
         """Load chat history into the agent's memory."""
         if not messages:
             return
-            
+
         # Clear existing memory first
-        if hasattr(self.agent, 'memory') and self.agent.memory:
-            self.agent.memory.clear()
-        
+        if hasattr(agent, "memory") and agent.memory:
+            agent.memory.clear()
+
         # Load history into memory
         for msg in messages:
             if msg["role"] == "user":
-                self.agent.memory.chat_memory.add_user_message(msg["content"])
+                agent.memory.chat_memory.add_user_message(msg["content"])
             elif msg["role"] == "assistant":
-                self.agent.memory.chat_memory.add_ai_message(msg["content"])
+                agent.memory.chat_memory.add_ai_message(msg["content"])
 
     def _build_messages(self, history: list, user_message: str) -> list:
         """Build the complete message list for the LLM."""
@@ -142,12 +139,6 @@ class DbInteractAiChatService:
         messages.append({"role": "user", "content": user_message})
         return messages
 
-    def _format_stream_data(self, data_type: str, **kwargs) -> str:
-        """Format streaming data as Server-Sent Events."""
-        data = {"type": data_type}
-        data.update(kwargs)
-        return f"data: {json.dumps(data)}\n\n"
-
     def _handle_streaming_error(self, error: Exception) -> str:
         """Handle and format streaming errors."""
         error_message = str(error)
@@ -163,22 +154,14 @@ class DbInteractAiChatService:
         else:
             return f"Error generating response: {error_message}"
 
-    def _create_error_response(self, error_message: str):
-        """Create an error response for invalid requests."""
-
-        def error_stream():
-            yield self._format_stream_data("error", error=error_message)
-
-        response = StreamingHttpResponse(
-            error_stream(), content_type="text/event-stream"
-        )
-        response["Cache-Control"] = "no-cache"
-        return response
-
-    def _save_conversation_messages(self, chat, user_message: str, bot_message: str):
+    def _save_conversation_messages(
+        self, chat, user_message: str, bot_message: str, extra_data: str = None
+    ):
         """Save both user and bot messages to the database."""
         self.save_message(chat, user_message, Message.Sender.HUMAN)
-        self.save_message(chat, bot_message, Message.Sender.BOT)
+        self.save_message(chat, bot_message, Message.Sender.BOT, extra_data)
 
-    def save_message(self, chat, message, sender):
-        Message.objects.create(chat=chat, message=message, sender=sender)
+    def save_message(self, chat, message, sender, extra_data=None):
+        Message.objects.create(
+            chat=chat, message=message, sender=sender, extra_data=extra_data
+        )

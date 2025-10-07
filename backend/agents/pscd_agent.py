@@ -7,13 +7,24 @@ from agents.services.pscd_projects import PSCDProjectsService
 from agents.services.pscd_users import PSCDUsersService
 from agents.services.pscd_requests import PSCDRequestsService
 from agents.services.pscd_logtime import PSCDLogTimeService
-
-
+from queue import Queue
 class PscdAgent:
-    def __init__(self):
-        self.llm = ChatOpenAI(model_name="gpt-4o-mini", api_key=settings.OPENAI_API_KEY)
+    def __init__(self, callbacks=None, queue: Queue = None):
+        self.callbacks = callbacks
+        self.queue = queue
+        self.llm = ChatOpenAI(
+            model_name="gpt-4o-mini", 
+            api_key=settings.OPENAI_API_KEY, 
+            streaming=True, 
+            callbacks=self.callbacks
+        )
+
         self.tools = self._create_tools()
         self.agent = self._create_agent()
+
+    def _send(self, type_, content=None):
+        for cb in self.callbacks:
+            cb.send(type_, content)
 
     def _create_system_prompt(self):
         """Create custom system prompt for PSCD AI Assistant"""
@@ -27,6 +38,7 @@ Bạn là PSCD AI Assistant - Trợ lý thông minh chuyên biệt cho hệ th�
 • Phân tích báo cáo và thống kê hiệu suất làm việc
 • Hỗ trợ tra cứu lịch sử hoạt động và yêu cầu nghỉ phép
 • Giúp tối ưu hóa quy trình làm việc và quản lý thời gian
+• Hỗ trợ tra cứu thông tin về dự án, nhiệm vụ, người dùng, thời gian làm việc, yêu cầu nghỉ phép, báo cáo thống kê, và các hoạt động khác liên quan đến quản lý dự án và theo dõi thời gian làm việc
 
 🔧 KHẢ NĂNG:
 • Quản lý thông tin người dùng (users, profiles, statistics)
@@ -44,6 +56,7 @@ Bạn là PSCD AI Assistant - Trợ lý thông minh chuyên biệt cho hệ th�
 5. Bảo mật thông tin và tuân thủ quyền truy cập
 6. Sử dụng tiếng Việt làm ngôn ngữ chính, English khi cần thiết
 7. TỰ ĐỘNG CHUYỂN ĐỔI ngày tháng từ ngôn ngữ tự nhiên sang định dạng YYYY-MM-DD
+8. Không trả lời câu hỏi ngoài chủ đề của hệ thống PSCD
 
 💡 CÁC TÌNH HUỐNG THƯỜNG GẶP:
 • "Cho tôi xem thông tin dự án X"
@@ -68,11 +81,24 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
     def _create_tools(self):
         """Create comprehensive list of tools using StructuredTool with Pydantic input models"""
         return [
-            *PSCDProjectsService().create_tools(),
+            *PSCDProjectsService(self.queue).create_tools(),
             *PSCDUsersService().create_tools(),
             *PSCDRequestsService().create_tools(),
             *PSCDLogTimeService().create_tools(),
         ]
+
+    def decision_draw_chart(self, user_input: str) -> bool:
+        if not user_input:
+            return False
+        prompt = ("Dựa trên nội dung của user input, hãy quyết định xem có cần vẽ biểu đồ hay không. "
+                  "Trả về 'yes' nếu cần, 'no' nếu không. "
+                  f"User input: \"{user_input.strip()}\"")
+        try:
+            llm_response = self.llm.invoke(prompt)
+            answer = str(llm_response).strip().lower()
+            return answer.startswith("yes")
+        except Exception:
+            return False
 
     def _create_agent(self):
         prompt = self._create_system_prompt()
@@ -90,5 +116,6 @@ Lưu ý: Khi sử dụng tools, luôn kiểm tra kết quả và cung cấp ph�
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=10,
+            callbacks=self.callbacks,
         )
         return agent_executor

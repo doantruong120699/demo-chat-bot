@@ -10,8 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@radix-ui/themes": "^3.2.1",
     "@tailwindcss/vite": "^4.1.11",
+    "apexcharts": "^5.3.5",
     "axios": "^1.11.0",
+    "flowbite": "^3.1.2",
+    "flowbite-react": "^0.12.9",
+    "html-to-image": "^1.11.13",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-markdown": "^10.1.0",

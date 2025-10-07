@@ -1,8 +1,18 @@
 from pscds.models import Project, Task, TaskUser, ProjectUser, User
 from langchain_core.tools import StructuredTool, Tool
-from agents.services.io_models.input import ProjectIdInput, UserFilterInput, ProjectFilterInput, TaskIdInput
-
+from agents.services.io_models.input import ProjectIdInput, UserFilterInput, ProjectFilterInput, TaskIdInput, ProjectChartInput
+import matplotlib.pyplot as plt
+import io
+import base64
+from common.services.storage_service import StorageService
+from queue import Queue
+import json
+from common.utils.strings import get_str_time_now
 class PSCDProjectsService:
+    def __init__(self, queue: Queue):
+        self.storage_service = StorageService()
+        self.queue = queue
+
     # Project-related methods
     def _mapping_role_id_to_name(self, role_id: int) -> str:
         """Mapping role ID to role name"""
@@ -215,25 +225,168 @@ class PSCDProjectsService:
         except Exception as e:
             return f"Error retrieving tasks for user: {str(e)}"
 
-    def _get_project_statistics(self, project_id: int) -> str:
-        """Get statistics for a specific project"""
+    def _get_project_working_time_statistics(self, project_id: int) -> str:
+        """Get working time statistics for a specific project"""
         try:
             project = Project.objects.get(id=project_id)
             tasks = Task.objects.filter(project_id=project_id)
             total_tasks = tasks.count()
-            completed_tasks = tasks.filter(status_id=3).count()  # Assuming 3 is completed
             total_work_time = sum(task.work_time for task in tasks)
             
             project_users = ProjectUser.objects.filter(project_id=project_id)
             total_users = project_users.count()
             
-            completion_rate = (completed_tasks/total_tasks*100) if total_tasks > 0 else 0
-            return f"Project Statistics for '{project.name}':\n- Total Tasks: {total_tasks}\n- Completed Tasks: {completed_tasks}\n- Total Work Time: {total_work_time}h\n- Assigned Users: {total_users}\n- Completion Rate: {completion_rate:.1f}%"
+            # Get all TaskUser objects for tasks in this project
+            task_users = TaskUser.objects.filter(task__project_id=project_id)
+            
+            # Aggregate work time per user and collect task details
+            user_work_time_dict = {}
+            user_task_details = {}
+            header_task_details = ["Tên công việc", "Mô tả", "Thời gian làm việc (h)", "Ngày hết hạn"]
+            
+            for tu in task_users:
+                user = tu.user
+                task = tu.task
+                work_time = task.work_time or 0
+                
+                # Aggregate total work time per user
+                if user.full_name not in user_work_time_dict:
+                    user_work_time_dict[user.full_name] = 0
+                    user_task_details[user.full_name] = []
+                
+                user_work_time_dict[user.full_name] += work_time
+                
+                # Collect task details for this user as 2D array
+                task_detail = [
+                    task.task_name or "N/A",
+                    task.description or "N/A", 
+                    work_time,
+                    get_str_time_now(str(task.due_date)) or "N/A"
+                ]
+                user_task_details[user.full_name].append(task_detail)
+            
+            # Prepare data for table
+            data = [["Thành viên", "Tổng thời gian (h)", "Action"]]
+            
+            for user_name, total_time in user_work_time_dict.items():
+                data.append([user_name, total_time, [header_task_details, *user_task_details[user_name]]])
+            
+            if len(data) > 1:
+                self.queue.put({"type": "extra_data", "content": json.dumps(data, default=str)})
+
+            # Prepare summary result
+            result = (
+                f"📊 **THỐNG KÊ THỜI GIAN LÀM VIỆC DỰ ÁN**\n\n"
+                f"────────────────────────────\n\n"
+                f"📁 **Dự án:** {project.name}\n"
+                f"👥 **Tổng số thành viên:** {total_users}\n"
+                f"⏱️ **Tổng thời gian làm việc:** {total_work_time}h\n"
+                f"📋 **Tổng số công việc:** {total_tasks}\n"
+                f"────────────────────────────\n\n"
+                f"👤 **Chi tiết từng thành viên:**\n"
+            )
+            
+            for user_name, total_time in user_work_time_dict.items():
+                task_count = len(user_task_details[user_name])
+                result += f"• **{user_name}:** {total_time}h ({task_count} công việc)\n"
+            
+            return result
+        except Exception as e:
+            return f"Error retrieving working time statistics: {str(e)}"
+    
+    def _get_project_statistics(self, project_id: int) -> str:
+        """Get statistics for a specific project and draw chart using matplotlib"""
+        try:
+            project = Project.objects.get(id=project_id)
+            tasks = Task.objects.filter(project_id=project_id)
+            total_tasks = tasks.count()
+            # Assuming status_id == 3 means completed
+            completed_tasks = tasks.filter(status_id=3).count()
+            total_work_time = sum(task.work_time for task in tasks)
+
+            project_users = ProjectUser.objects.filter(project_id=project_id)
+            total_users = project_users.count()
+
+            # Statistic for each user in the project and how much time they spent
+            user_stats = []
+            user_names = []
+            user_work_times = []
+            for pu in project_users:
+                user = pu.user
+                user_tasks = TaskUser.objects.filter(user_id=user.id, task__project_id=project_id)
+                user_work_time = sum(tu.task.work_time for tu in user_tasks)
+                user_stats.append(f"  - {user.full_name} ({user.email}): {user_work_time}h")
+                user_names.append(user.full_name)
+                user_work_times.append(user_work_time)
+
+            completion_rate = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+
+            result = (
+                f"Project Statistics for '{project.name}':\n"
+                f"- Total Tasks: {total_tasks}\n"
+                f"- Completed Tasks: {completed_tasks}\n"
+                f"- Total Work Time: {total_work_time}h\n"
+                f"- Assigned Users: {total_users}\n"
+                f"- Completion Rate: {completion_rate:.1f}%\n"
+                f"- User Work Time in Project:\n"
+            )
+            result += "\n".join(user_stats) if user_stats else "  No users assigned to this project."
+            return result
         except Project.DoesNotExist:
             return "Project not found"
         except Exception as e:
             return f"Error calculating statistics: {str(e)}"
-        
+
+    # def _get_project_tasks_chart(self, project_id: int) -> str:
+    #     """Get tasks chart for a specific project"""
+    #     try:
+    #         project = Project.objects.get(id=project_id)
+    #         user_work_time_dict = {}
+    #         task_users = TaskUser.objects.filter(task__project_id=project_id)
+    #         for tu in task_users:
+    #             user = tu.user
+    #             work_time = tu.task.work_time or 0
+    #             user_name = user.full_name
+    #             user_work_time_dict[user_name] = user_work_time_dict.get(user_name, 0) + work_time
+
+    #         user_names = list(user_work_time_dict.keys())
+    #         user_work_times = list(user_work_time_dict.values())
+    #         project_name = project.name
+
+    #         # Send data as table 
+    #         table_data = [
+    #             ["Thành viên", "Thời gian làm việc (h)"],
+    #             *zip(user_names, user_work_times)
+    #         ]
+    #         print(table_data)
+    #         self.queue.put({"type": "table", "content": json.dumps(table_data, default=str)})
+
+    #         if user_work_times and any(user_work_times):
+    #             plt.figure(figsize=(8, 4))
+    #             bars = plt.bar(user_names, user_work_times, color='skyblue')
+    #             plt.xlabel('Thành viên')
+    #             plt.ylabel('Thời gian làm việc (h)')
+    #             plt.title(f"Thời gian làm việc của thành viên trong dự án '{project_name}'")
+    #             plt.xticks(rotation=30, ha='right')
+    #             plt.tight_layout()
+
+    #             # Annotate bars with values
+    #             for bar, value in zip(bars, user_work_times):
+    #                 plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height(), f'{value}', ha='center', va='bottom', fontsize=8)
+
+    #             buf = io.BytesIO()
+    #             plt.savefig(buf, format='png')
+    #             plt.close()
+    #             buf.seek(0)
+    #             image_base64 = base64.b64encode(buf.read()).decode('utf-8')
+    #             image_path = self.storage_service.save_base64_image(image_base64, folder="images")
+    #             self.queue.put({"type": "image", "content": image_path})
+    #             return ""
+    #         else:
+    #             return "No user work time data to plot."
+    #     except Exception as e:
+    #         return f"Error calculating statistics: {str(e)}"
+
     def create_tools(self):
         return [
             StructuredTool.from_function(
@@ -266,7 +419,7 @@ class PSCDProjectsService:
             StructuredTool.from_function(
                 func=self._get_project_statistics,
                 name="get_project_statistics",
-                description="Get statistics for a specific project",
+                description="Get statistics for a specific project. Return a chart of user work time in the project in image format",
                 args_schema=ProjectIdInput
             ),
             
@@ -289,5 +442,16 @@ class PSCDProjectsService:
                 description="Get detailed task information by task ID",
                 args_schema=TaskIdInput
             ),
-            
+            # StructuredTool.from_function(
+            #     func=self._get_project_tasks_chart,
+            #     name="get_project_tasks_chart",
+            #     description="Get tasks chart for a specific project. Return a chart of user work time in the project in image format",
+            #     args_schema=ProjectChartInput
+            # ),
+            StructuredTool.from_function(
+                func=self._get_project_working_time_statistics,
+                name="get_project_working_time_statistics",
+                description="Get working time statistics for a specific project. Return data in table format to display table in UI and string summary of the data.",
+                args_schema=ProjectIdInput
+            ),
         ]
