@@ -21,7 +21,7 @@ class ChatHistoryDetailSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "created_at", "updated_at", "messages"]
 
     def get_messages(self, obj):
-        return MessageSerializer(obj.messages.all(), many=True).data
+        return MessageSerializer(obj.messages.all().order_by("created_at"), many=True).data
 
 class ChatRequestSerializer(serializers.Serializer):
     chat_id = serializers.CharField(required=True, allow_null=True)

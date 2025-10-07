@@ -28,9 +28,8 @@ export const useStreamingResponse = () => {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
-      const processText = ({ done, value }) => {
+      const processText = async ({ done, value }) => {
         if (done) {
-          onFinish?.(result);
           setLoading(false);
           return;
         }
@@ -38,28 +37,36 @@ export const useStreamingResponse = () => {
         const chunk = decoder.decode(value);
         const lines = chunk.split("\n").filter((line) => line.trim() !== "");
 
-        lines.forEach((line) => {
+        for (const line of lines) {
           const json = JSON.parse(line.slice(6));
           if (json.type === "token") {
             result += json.content;
-            onProgress?.({ type: "token", content: result });
+            await onProgress?.({ type: "token", content: result });
           } else if (json.type === "html") {
-            onProgress?.({ type: "html", content: json.content });
+            await onProgress?.({ type: "html", content: json.content });
           } else if (json.type === "end") {
-            onFinish?.({ type: "end", content: result });
+            await onFinish?.({ type: "end", content: result });
           } else if (json.type === "error") {
             onError?.(json.error || 'An error occurred');
           } else if (json.type === "image") {
-            onGenerateImage?.({ type: "image", content: json.content });
+            await onGenerateImage?.({ type: "image", content: json.content });
           } else if (json.type === "extra_data") {
-            onGenerateExtraData?.({ type: "extra_data", content: json.content });
+            await onGenerateExtraData?.({ type: "extra_data", content: json.content });
           }
-        });
+        }
 
-        return reader.read().then(processText);
+        return reader.read().then(async (result) => {
+          await processText(result);
+        });
       };
 
-      reader.read().then(processText);
+      reader.read().then(async (result) => {
+        await processText(result);
+      }).catch(async (error) => {
+        console.error("Error processing stream:", error);
+        onError?.(error.message || 'Failed to process stream');
+        setLoading(false);
+      });
     } catch (error) {
       console.error("Error calling Chat API:", error);
       onError?.(error.message || 'Failed to connect to server');
