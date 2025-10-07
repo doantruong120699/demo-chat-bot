@@ -52,6 +52,7 @@ class DbInteractAiChatService:
         user_message = data.get("message", "")
         chat = self.get_chat_by_id(user, chat_id, user_message)
         history = self.get_history_by_chat_id(chat_id)
+        extra_data = None
 
         self._load_chat_history_into_agent_memory(self.agent, history)
 
@@ -59,7 +60,7 @@ class DbInteractAiChatService:
         def run_agent():
             try:
                 result = self.agent.invoke({"input": user_message})
-                self._save_conversation_messages(chat, user_message, result["output"])
+                self._save_conversation_messages(chat, user_message, result["output"], extra_data)
             except Exception as e:
                 self.callback_handler.send("error", str(e))
 
@@ -72,6 +73,8 @@ class DbInteractAiChatService:
             try:
                 event = self.callback_handler.queue.get(timeout=1)
                 yield f"data: {json.dumps(event)}\n\n"
+                if event["type"] == "extra_data":
+                    extra_data = event["content"]
                 if event["type"] == "end" or event["type"] == "error":
                     break
             except:
@@ -152,13 +155,13 @@ class DbInteractAiChatService:
             return f"Error generating response: {error_message}"
 
     def _save_conversation_messages(
-        self, chat, user_message: str, bot_message: str, html_message: str = None
+        self, chat, user_message: str, bot_message: str, extra_data: str = None
     ):
         """Save both user and bot messages to the database."""
         self.save_message(chat, user_message, Message.Sender.HUMAN)
-        self.save_message(chat, bot_message, Message.Sender.BOT, html_message)
+        self.save_message(chat, bot_message, Message.Sender.BOT, extra_data)
 
-    def save_message(self, chat, message, sender, html_message=None):
+    def save_message(self, chat, message, sender, extra_data=None):
         Message.objects.create(
-            chat=chat, message=message, sender=sender, html_message=html_message
+            chat=chat, message=message, sender=sender, extra_data=extra_data
         )

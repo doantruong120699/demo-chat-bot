@@ -5,6 +5,180 @@ from datetime import datetime, timedelta, time
 from django.utils import timezone
 import random
 
+TOSI_TASK = [
+    {
+        "task_name": "Blockchain Development",
+        "description": "Develop the blockchain infrastructure for the new website",
+        "work_time": 20,
+    },
+    {
+        "task_name": "UI/UX Design",
+        "description": "Create mockups and wireframes for the new website design",
+        "work_time": 10,
+    },
+    
+    {
+        "task_name": "API deposit and withdraw",
+        "description": "Develop the API for deposit and withdraw",
+        "work_time": 10,
+    },
+    
+    {
+        "task_name": "API dashboard",
+        "description": "Develop the API for dashboard",
+        "work_time": 15,
+    },
+    
+    {
+        "task_name": "API wallet",
+        "description": "Develop the API for wallet",
+        "work_time": 16,
+    },
+    
+    {
+        "task_name": "Sign up and login",
+        "description": "Develop the API for sign up and login",
+        "work_time": 8,
+    },
+    
+    {
+        "task_name": "API generate token",
+        "description": "Develop the API for generate token",
+        "work_time": 10,
+    },
+    {
+        "task_name": "API get wallet balance",
+        "description": "Develop the API for get wallet balance",
+        "work_time": 12,
+    },
+    {
+        "task_name": "API get wallet history",
+        "description": "Develop the API for get wallet history",
+        "work_time": 12,
+    },
+    {
+        "task_name": "API get wallet transaction",
+        "description": "Develop the API for get wallet transaction",
+        "work_time": 10,
+    },
+]
+
+TRI_TUE_SIEU_VIET_TASK = [
+    {
+        "task_name": "Login/Register Page",
+        "description": "Develop the login/register page",
+        "work_time": 12,
+    },
+    {
+        "task_name": "Home Page",
+        "description": "Develop the home page",
+        "work_time": 7,
+    },
+    
+    {
+        "task_name": "Course Page",
+        "description": "Develop the course page",
+        "work_time": 12,
+    },
+    
+    {
+        "task_name": "Course Detail Page",
+        "description": "Develop the course detail page",
+        "work_time": 12,
+    },
+    
+    {
+        "task_name": "Course List Page",
+        "description": "Develop the course list page",
+        "work_time": 10,
+    },
+    
+    {
+        "task_name": "Profile Page",
+        "description": "Develop the profile page",
+        "work_time": 8,
+    },
+    
+    {
+        "task_name": "Contact Page",
+        "description": "Develop the contact page",
+        "work_time": 4,
+    },
+    {
+        "task_name": "Blog Page",
+        "description": "Develop the blog page",
+        "work_time": 20,
+    },
+    {
+        "task_name": "Blog Detail Page",
+        "description": "Develop the blog detail page",
+        "work_time": 6,
+    },
+    {
+        "task_name": "Blog List Page",
+        "description": "Develop the blog list page",
+        "work_time": 2,
+    },
+]
+
+AI_CHAT_APPLICATION_TASK = [
+    {
+        "task_name": "Setup Django Backend",
+        "description": "Initialize Django project, configure database, and setup basic models",
+        "work_time": 20 ,
+    },
+    {
+        "task_name": "Implement User Authentication",
+        "description": "Create user registration, login, and authentication system",
+        "work_time": 16,
+    },
+    
+    {
+        "task_name": "Design Chat Interface",
+        "description": "Create responsive chat interface with React components",
+        "work_time": 16,
+    },
+    
+    {
+        "task_name": "Implement Chatbot Functionality",
+        "description": "Develop the chatbot functionality",
+        "work_time": 18,
+    },
+    
+    {
+        "task_name": "Develop Chatbot API",
+        "description": "Develop the chatbot API",
+        "work_time": 15,
+    },
+    
+    {
+        "task_name": "Integrate Chatbot with Frontend",
+        "description": "Develop the profile page",
+        "work_time": 12,
+    },
+    
+    {
+        "task_name": "Test and Debug Chatbot",
+        "description": "Test and debug the chatbot",
+        "work_time": 10,
+    },
+    {
+        "task_name": "Deploy Chatbot",
+        "description": "Deploy the chatbot",
+        "work_time": 15,
+    },
+    {
+        "task_name": "Monitor Chatbot Performance",
+        "description": "Monitor the chatbot performance",
+        "work_time": 10,
+    },
+    {
+        "task_name": "Update Documentation",
+        "description": "Update the documentation",
+        "work_time": 2,
+    },
+]
+
 
 def gen_user_tasks(apps, schema_editor):
     User = apps.get_model("pscds", "User")
@@ -23,19 +197,53 @@ def gen_user_tasks(apps, schema_editor):
     for i in range(10):
         task = Task.objects.create(
             project=project,
-            task_name=f"Tosi Grow holding - Task {i+1}",
-            description=f"Description of task {i+1}",
-            work_time=random.randint(1, 10),
-            warning_time=random.randint(1, 10),
+            task_name=TOSI_TASK[i]["task_name"],
+            description=TOSI_TASK[i]["description"],
+            work_time=TOSI_TASK[i]["work_time"],
+            warning_time=TOSI_TASK[i]["work_time"],
             assigned_by=random.randint(1, 10),
-            status_id=random.randint(1, 3),
+            status_id=3,
             relative_position=random.randint(1, 10),
             due_date=timezone.now() + timedelta(days=random.randint(1, 10)),
         )
         user_tasks = project_users[random.randint(0, len(project_users) - 1)]
         TaskUser.objects.create(task=task, user=user_tasks.user)
 
-        
+    # Create 10 task for project Trí Tuệ Siêu Việt
+    project = Project.objects.get(name="Trí Tuệ Siêu Việt")
+    project_users = ProjectUser.objects.filter(project=project)
+    for i in range(10):
+        task = Task.objects.create(
+            project=project,
+            task_name=TRI_TUE_SIEU_VIET_TASK[i]["task_name"],
+            description=TRI_TUE_SIEU_VIET_TASK[i]["description"],
+            work_time=TRI_TUE_SIEU_VIET_TASK[i]["work_time"],
+            warning_time=TRI_TUE_SIEU_VIET_TASK[i]["work_time"],
+            assigned_by=random.randint(1, 10),
+            status_id=3,
+            relative_position=random.randint(1, 10),
+            due_date=timezone.now() + timedelta(days=random.randint(1, 10)),
+        )
+        user_tasks = project_users[random.randint(0, len(project_users) - 1)]
+        TaskUser.objects.create(task=task, user=user_tasks.user)
+
+    # Create 10 task for project AI Chat Application
+    project = Project.objects.get(name="AI Chat Application")
+    project_users = ProjectUser.objects.filter(project=project)
+    for i in range(10):
+        task = Task.objects.create(
+            project=project,
+            task_name=AI_CHAT_APPLICATION_TASK[i]["task_name"],
+            description=AI_CHAT_APPLICATION_TASK[i]["description"],
+            work_time=AI_CHAT_APPLICATION_TASK[i]["work_time"],
+            warning_time=AI_CHAT_APPLICATION_TASK[i]["work_time"],
+            assigned_by=random.randint(1, 10),
+            status_id=3,
+            relative_position=random.randint(1, 10),
+            due_date=timezone.now() + timedelta(days=random.randint(1, 10)),
+        )
+        user_tasks = project_users[random.randint(0, len(project_users) - 1)]
+        TaskUser.objects.create(task=task, user=user_tasks.user)
 
 
 class Migration(migrations.Migration):

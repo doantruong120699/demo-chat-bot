@@ -5,10 +5,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export const useStreamingResponse = () => {
   const [loading, setLoading] = useState(false);
 
-  const streamResponse = async ({ user_input, chat_id, onProgress, onFinish, onError, onGenerateImage = null, onGenerateTable = null }) => {
+  const streamResponse = async ({ user_input, chat_id, onProgress, onFinish, onError, onGenerateImage = null, onGenerateExtraData = null }) => {
     setLoading(true);
     try {
-      // Use fetch for streaming response since axios doesn't support streaming
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
@@ -52,8 +51,8 @@ export const useStreamingResponse = () => {
             onError?.(json.error || 'An error occurred');
           } else if (json.type === "image") {
             onGenerateImage?.({ type: "image", content: json.content });
-          } else if (json.type === "table") {
-            onGenerateTable?.({ type: "table", content: json.content });
+          } else if (json.type === "extra_data") {
+            onGenerateExtraData?.({ type: "extra_data", content: json.content });
           }
         });
 

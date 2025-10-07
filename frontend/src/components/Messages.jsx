@@ -1,32 +1,89 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable no-unused-vars */
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useMemo } from "react";
 import { useStreamingResponse } from "../hooks/useStreamingResponse";
 import { useAuth } from "../hooks/useAuth";
 import { chat } from "../api/chat.js";
 import ReactMarkdown from "react-markdown";
+import { Table, Button, Dialog, Flex, Inset } from "@radix-ui/themes";
+import ApexCharts from "apexcharts";
 
-const HtmlMessage = ({ message }) => {
-  return <div dangerouslySetInnerHTML={{ __html: message }} />;
-};
-
-// const HtmlMessage = ({ message }) => {
-//   return (
-//     <iframe
-//       sandbox="allow-scripts"
-//       srcDoc={message}
-//       style={{ width: "100%", height: "300px", border: "none" }}
-//     />
-//   );
-// };
-
-const DelayedRender = ({ delay, children }) => {
+const DelayedRender = ({ delay, children, spinnerClassName="", className="w-full" }) => {
   const [show, setShow] = useState(false);
   useEffect(() => {
     const timer = setTimeout(() => setShow(true), delay);
     return () => clearTimeout(timer);
   }, [delay]);
-  return show ? children : (
-    <div className="my-4 p-4 bg-gray-900 rounded-lg shadow-md">
+  return show ? (
+    <div style={{ position: "relative", overflow: "hidden" }} className={className}>
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          // Ban đầu children bị che, sau đó hiển thị dần dần bằng mask
+          WebkitMaskImage:
+            "linear-gradient(to bottom, black 0%, black 0%, transparent 0%, transparent 100%)",
+          maskImage:
+            "linear-gradient(to bottom, black 0%, black 0%, transparent 0%, transparent 100%)",
+          animation:
+            "revealChildrenMaskDown 1.5s cubic-bezier(0.23, 1, 0.32, 1) forwards",
+        }}
+      >
+        {children}
+      </div>
+      <style>
+        {`
+          @keyframes revealChildrenMaskDown {
+            0%   {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 0%, transparent 0%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 0%, transparent 0%, transparent 100%);
+            }
+            10%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 10%, transparent 10%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 10%, transparent 10%, transparent 100%);
+            }
+            20%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 20%, transparent 20%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 20%, transparent 20%, transparent 100%);
+            }
+            30%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 30%, transparent 30%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 30%, transparent 30%, transparent 100%);
+            }
+            40%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 40%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 40%, transparent 40%, transparent 100%);
+            }
+            50%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 50%, transparent 50%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 50%, transparent 50%, transparent 100%);
+            }
+            60%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 60%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 60%, transparent 60%, transparent 100%);
+            }
+            70%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 70%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 70%, transparent 70%, transparent 100%);
+            }
+            80%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 80%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 80%, transparent 80%, transparent 100%);
+            }
+            90%  {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 90%, transparent 90%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 90%, transparent 90%, transparent 100%);
+            }
+            100% {
+              -webkit-mask-image: linear-gradient(to bottom, black 0%, black 100%, transparent 100%, transparent 100%);
+              mask-image: linear-gradient(to bottom, black 0%, black 100%, transparent 100%, transparent 100%);
+            }
+          }
+        `}
+      </style>
+    </div>
+  ) : (
+    <div className={`my-4 p-4 rounded-lg shadow-md ${spinnerClassName}`}>
       <div className="flex justify-center items-center h-32">
         <svg
           className="animate-spin h-6 w-6 text-gray-400"
@@ -46,9 +103,9 @@ const DelayedRender = ({ delay, children }) => {
             className="opacity-75"
             fill="currentColor"
             d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-            ></path>
-          </svg>
-        </div>
+          ></path>
+        </svg>
+      </div>
     </div>
   );
 };
@@ -56,7 +113,7 @@ const DelayedRender = ({ delay, children }) => {
 const HumanMessage = ({ message, userProfile }) => {
   return (
     <div className="flex justify-end">
-      <div className="flex items-end w-auto bg-blue-500 dark:bg-gray-800 m-1 rounded-xl rounded-br-none sm:w-3/4 md:w-auto">
+      <div className="flex items-end w-auto bg-blue-500 dark:bg-gray-800 my-2 rounded-xl rounded-br-none sm:w-3/4 md:w-auto">
         <div className="p-2">
           <div className="text-gray-200">
             <ReactMarkdown>{message}</ReactMarkdown>
@@ -67,11 +124,163 @@ const HumanMessage = ({ message, userProfile }) => {
   );
 };
 
-const BotMessage = ({ message, isError = false, isLoading = false, htmlMessage = null, imageMessage = null, tableMessage = null }) => {
+const ChatExtraData = ({ extraData }) => {
+  const chartRef = useRef(null);
+
+  // Memoize labels and series to avoid recalculating on every render
+  const { labels, series } = useMemo(() => {
+    if (
+      Array.isArray(extraData) &&
+      extraData.length > 1 &&
+      extraData.every(row => Array.isArray(row))
+    ) {
+      return {
+        labels: extraData.slice(1).map(row => row[0]),
+        series: extraData.slice(1).map(row => Number(row[1]) || 0),
+      };
+    }
+    return { labels: [], series: [] };
+  }, [extraData]);
+
+  useEffect(() => {
+    let chart;
+    const timeout = setTimeout(() => {
+      if (chartRef.current && series.length && labels.length) {
+        const options = {
+          series,
+          labels,
+          colors: ["#1C64F2", "#16BDCA", "#9061F9"],
+          chart: { type: "pie", height: 300, width: "100%" },
+          stroke: { colors: ["white"] },
+          plotOptions: { pie: { size: "100%" } },
+          dataLabels: { enabled: true, style: { fontFamily: "Inter, sans-serif" } },
+          legend: { position: "bottom", fontFamily: "Inter, sans-serif" },
+        };
+
+        chart = new ApexCharts(chartRef.current, options);
+        chart.render();
+      }
+    }, 2000);
+
+    return () => {
+      clearTimeout(timeout);
+      if (chart) {
+        chart.destroy();
+      }
+    };
+  }, [series, labels, chartRef.current]);
+
+  return (
+    <DelayedRender delay={1000} spinnerClassName="w-1/2 bg-white rounded-lg shadow-sm dark:bg-gray-800 p-1">
+      <div className="rounded-lg shadow-sm p-1">
+        <div className="flex justify-center items-center w-full">
+          <h5 className="text-xl font-bold text-gray-900">
+            Biểu đồ tổng quan
+          </h5>
+        </div>
+        <div>
+          <div ref={chartRef} />
+        </div>
+      </div>
+    </DelayedRender>
+  );
+};
+
+const TableExtraData = ({ extraData }) => {
+  const [selectedRow, setSelectedRow] = useState(null);
+  if (extraData && extraData.length > 0) {
+    return (
+      <DelayedRender delay={1000} spinnerClassName="w-1/2 bg-white rounded-lg shadow-sm dark:bg-gray-800 p-1">
+        <Dialog.Root>
+          <Table.Root variant="surface">
+            <Table.Header>
+              <Table.Row>
+                {extraData[0].map((item, index) => (
+                  <Table.ColumnHeaderCell key={index}>
+                    {item}
+                  </Table.ColumnHeaderCell>
+                ))}
+                {/* <Table.ColumnHeaderCell>Action</Table.ColumnHeaderCell> */}
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {extraData.slice(1).map((item, index) => (
+                <Table.Row key={index}>
+                  {item.slice(0, -1).map((item, index) => (
+                    <Table.Cell key={index}>{item}</Table.Cell>
+                  ))}
+                  <Table.Cell>
+                    <Dialog.Trigger onClick={() => setSelectedRow(item)}>
+                      <Button className="cursor-pointer">View</Button>
+                    </Dialog.Trigger>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
+            </Table.Body>
+          </Table.Root>
+          {selectedRow && (
+            <Dialog.Content>
+              <Dialog.Title>{selectedRow[0]}</Dialog.Title>
+              <Dialog.Description>
+                Thông tin chi tiết về thời gian làm việc ở các task
+              </Dialog.Description>
+
+              <Inset side="y" my="5">
+                <Table.Root>
+                  <Table.Header>
+                    <Table.Row>
+                      {selectedRow[selectedRow.length - 1][0].map(
+                        (item, index) => (
+                          <Table.ColumnHeaderCell key={index}>
+                            {item}
+                          </Table.ColumnHeaderCell>
+                        )
+                      )}
+                    </Table.Row>
+                  </Table.Header>
+
+                  <Table.Body>
+                    {selectedRow[selectedRow.length - 1]
+                      .slice(1)
+                      .map((item, index) => (
+                        <Table.Row key={index}>
+                          {item.map((item, index) => (
+                            <Table.Cell key={index}>{item}</Table.Cell>
+                          ))}
+                        </Table.Row>
+                      ))}
+                  </Table.Body>
+                </Table.Root>
+              </Inset>
+
+              <Flex gap="3" justify="end">
+                <Dialog.Close>
+                  <Button variant="soft" color="gray">
+                    Close
+                  </Button>
+                </Dialog.Close>
+              </Flex>
+            </Dialog.Content>
+          )}
+        </Dialog.Root>
+      </DelayedRender>
+    );
+  }
+  return null;
+};
+
+const BotMessage = ({
+  message,
+  isError = false,
+  isLoading = false,
+  imageMessage = null,
+  extraData = null,
+  isFinishGenerateText = false,
+}) => {
   if (isLoading) {
     return (
-      <div className="flex flex-col w-3/4 ml-3">
-        <div className="p-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6 bg-purple-300 dark:bg-gray-800">
+      <div className="flex flex-col ml-3">
+        <div className="p-3 my-3 rounded-2xl rounded-bl-none w-1/5 bg-purple-300 dark:bg-gray-800">
           <div className="text-xs text-gray-600 dark:text-gray-200">
             AI Assistant
           </div>
@@ -96,33 +305,10 @@ const BotMessage = ({ message, isError = false, isLoading = false, htmlMessage =
     );
   }
 
-  const onSaveImage = async () => { 
-    const { toPng } = await import('html-to-image');
-    const htmlElement = document.querySelector('.html-message-container');
-    if (htmlElement) {
-      const dataUrl = await toPng(htmlElement);
-      const link = document.createElement('a');
-      link.download = 'html-message.png';
-      link.href = dataUrl;
-      link.click();
-    } else {
-      alert('Could not find HTML message to save.');
-    }
-  };
-
-  const handleSaveImage = async () => {
-    try {
-      await onSaveImage();
-    } catch (err) {
-      alert('Failed to save image');
-      console.error(err);
-    }
-  };
-
   return (
-    <div className="flex flex-col w-3/4 ml-3">
+    <div className="flex flex-col w-full">
       <div
-        className={`p-3 my-1 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/6 ${
+        className={`p-3 my-3 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/4 ${
           isError
             ? "bg-red-100 dark:bg-red-900 border border-red-200"
             : "bg-purple-300 dark:bg-gray-800"
@@ -139,7 +325,9 @@ const BotMessage = ({ message, isError = false, isLoading = false, htmlMessage =
           }`}
         >
           <ReactMarkdown
-            children={message || (isError ? "An error occurred. Please try again." : "")}
+            children={
+              message || (isError ? "An error occurred. Please try again." : "")
+            }
             skipHtml={false}
             components={{
               p: ({ node, ...props }) => (
@@ -222,81 +410,23 @@ const BotMessage = ({ message, isError = false, isLoading = false, htmlMessage =
           />
         </div>
       </div>
-      {htmlMessage && (
-        <div className="relative">
-          {htmlMessage && (
-            <DelayedRender delay={1000}>
-              <HtmlMessage message={htmlMessage} />
-            </DelayedRender>
-          )}
-          <button
-            className="absolute top-8 right-5 px-1 text-white rounded transition hover:scale-105 hover:bg-white hover:text-black cursor-pointer"
-            onClick={handleSaveImage}
-          >
-          <span className="inline-flex items-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5 inline-block"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4"
-              />
-            </svg>
-          </span>
-          </button>
-        </div>
-      )}
-     
-      {tableMessage && (
-        <div className="relative overflow-x-auto my-4">
-          <table className="min-w-[300px] border border-gray-300 dark:border-gray-700 rounded-lg shadow-sm bg-white dark:bg-gray-900">
-            <tbody>
-              {tableMessage.map((row, rowIndex) => (
-                <tr
-                  key={rowIndex}
-                  className={
-                    rowIndex === 0
-                      ? "bg-gray-100 dark:bg-gray-800 font-semibold"
-                      : rowIndex % 2 === 0
-                      ? "bg-gray-50 dark:bg-gray-800"
-                      : "bg-white dark:bg-gray-900"
-                  }
-                >
-                  {row.map((cell, cellIndex) =>
-                    rowIndex === 0 ? (
-                      <th
-                        key={cellIndex}
-                        className="px-4 py-2 border-b border-gray-300 dark:border-gray-700 text-left text-gray-700 dark:text-gray-200"
-                      >
-                        {cell}
-                      </th>
-                    ) : (
-                      <td
-                        key={cellIndex}
-                        className="px-4 py-2 border-b border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-100"
-                      >
-                        {cell}
-                      </td>
-                    )
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
-      {imageMessage && (
-        <div className="relative">
-          <img src={imageMessage} alt="Image" className="w-full h-auto" />
-        </div>
+      {(isFinishGenerateText === true || isFinishGenerateText === null) && (
+        <>
+          {imageMessage && (
+            <div className="relative">
+              <img src={imageMessage} alt="Image" className="w-3/4 h-auto" />
+            </div>
+          )}
+          {extraData && (
+            <div className="mt-2 flex flex-row gap-2 w-3/4 justify-between">
+              <TableExtraData extraData={extraData} />
+              <ChatExtraData extraData={extraData} />
+            </div>
+          )}
+        </>
       )}
+      
     </div>
   );
 };
@@ -306,10 +436,9 @@ const Messages = ({ chatId }) => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef(null);
-  // const [htmlMessage, setHtmlMessage] = useState("");
   const [imageMessage, setImageMessage] = useState("");
-  const [tableMessage, setTableMessage] = useState([]);
   const { streamResponse, loading } = useStreamingResponse();
+  const [isFinishGenerateText, setIsFinishGenerateText] = useState(null);
 
   useEffect(() => {
     const fetchChatDetail = async () => {
@@ -320,8 +449,15 @@ const Messages = ({ chatId }) => {
 
       try {
         const response = await chat.getChatDetail(chatId);
-        console.log("Messages response", response);
-        setMessages(response.data.messages || []);
+        const cleanMessages = response.data.messages.map((message) => {
+          if (message.extra_data) {
+            const valid = message.extra_data.replace(/'/g, '"');
+            const data = JSON.parse(valid);
+            return { ...message, extra_data: data };
+          }
+          return message;
+        });
+        setMessages(cleanMessages || []);
       } catch (error) {
         console.error("Failed to fetch chat detail:", error);
         setMessages([]);
@@ -361,38 +497,37 @@ const Messages = ({ chatId }) => {
     };
 
     setMessages((prevMessages) => [...prevMessages, botMessage]);
+    setIsFinishGenerateText(false);
 
     try {
       await streamResponse({
         user_input: userInput,
         chat_id: chatId,
         onProgress: (result) => {
-          // Update the bot message with streaming content
           setMessages((prevMessages) =>
             prevMessages.map((msg) =>
-              msg.id === botMessageId ? { ...msg, message: result.content } : msg
+              msg.id === botMessageId
+                ? { ...msg, message: result.content }
+                : msg
             )
           );
-          if (result.type === "html") {
-            // setHtmlMessage(result.content);
-            setMessages((prevMessages) =>
-              prevMessages.map((msg) =>
-                msg.id === botMessageId ? { ...msg, html_message: result.content } : msg
-              )
-            );
-          }
           scrollToBottom();
         },
         onGenerateImage: (result) => {
           setImageMessage("http://localhost:8000/media/" + result.content);
         },
-        onGenerateTable: (result) => {
+        onGenerateExtraData: (result) => {
           const valid = result.content.replace(/'/g, '"');
           const data = JSON.parse(valid);
-          setTableMessage(data);
+          // setExtraData(data);
+          setMessages((prevMessages) =>
+            prevMessages.map((msg) =>
+              msg.id === botMessageId ? { ...msg, extra_data: data } : msg
+            )
+          );
         },
         onFinish: (result) => {
-          // Final update to the bot message
+          setIsFinishGenerateText(true);
           setMessages((prevMessages) =>
             prevMessages.map((msg) =>
               msg.id === botMessageId ? { ...msg, message: result } : msg
@@ -402,7 +537,6 @@ const Messages = ({ chatId }) => {
         },
         onError: (error) => {
           console.error("Streaming error:", error);
-          // Handle error by updating the bot message
           setMessages((prevMessages) =>
             prevMessages.map((msg) =>
               msg.id === botMessageId
@@ -432,8 +566,6 @@ const Messages = ({ chatId }) => {
       );
     }
   };
-
-  console.log(tableMessage)
 
   const handleClickExampleQuestion = async (question) => {
     setInput(question);
@@ -499,7 +631,7 @@ const Messages = ({ chatId }) => {
                   className="cursor-pointer group rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-100 px-4 py-3 text-left text-gray-700 transition-all duration-200 hover:from-emerald-100 hover:to-green-100 hover:border-emerald-200 hover:shadow-md hover:scale-[1.02] dark:from-emerald-900/20 dark:to-green-900/20 dark:border-emerald-800 dark:text-gray-300 dark:hover:from-emerald-900/30 dark:hover:to-green-900/30"
                   onClick={async () =>
                     await handleClickExampleQuestion(
-                      "Dự án Trí Tuệ Siêu Việt đã hoàn thành chưa?"
+                      "Thống kê thời gian làm việc của dự án AI Chat Application"
                     )
                   }
                 >
@@ -517,7 +649,7 @@ const Messages = ({ chatId }) => {
                         d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                       />
                     </svg>
-                    &quot;Dự án Trí Tuệ Siêu Việt đã hoàn thành chưa?&quot;
+                    &quot;Thống kê thời gian làm việc của dự án AI Chat Application&quot;
                   </span>
                 </button>
                 <button
@@ -549,7 +681,7 @@ const Messages = ({ chatId }) => {
                   className="cursor-pointer group rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-100 px-4 py-3 text-left text-gray-700 transition-all duration-200 hover:from-amber-100 hover:to-yellow-100 hover:border-amber-200 hover:shadow-md hover:scale-[1.02] dark:from-amber-900/20 dark:to-yellow-900/20 dark:border-amber-800 dark:text-gray-300 dark:hover:from-amber-900/30 dark:hover:to-yellow-900/30"
                   onClick={async () =>
                     await handleClickExampleQuestion(
-                      "Thống kê dự án Tosi Grow Holding"
+                      "Thống kê thời gian làm việc của dự án Tosi Grow Holding"
                     )
                   }
                 >
@@ -567,7 +699,8 @@ const Messages = ({ chatId }) => {
                         d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
                       />
                     </svg>
-                    &quot;Thống kê dự án Tosi Grow Holding&quot;
+                    &quot;Thống kê thời gian làm việc của dự án Tosi Grow
+                    Holding&quot;
                   </span>
                 </button>
               </div>
@@ -594,9 +727,9 @@ const Messages = ({ chatId }) => {
                     message={messageContent}
                     isError={message.isError}
                     isLoading={!messageContent && !message.isError && loading}
-                    htmlMessage={message.html_message}
                     imageMessage={imageMessage}
-                    tableMessage={tableMessage}
+                    extraData={message.extra_data}
+                    isFinishGenerateText={isFinishGenerateText}
                   />
                 </div>
               );
