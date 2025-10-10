@@ -121,6 +121,7 @@ export const useStreamingResponseV2 = () => {
           } else if (streamEvent.type === "end") {
             await onFinish?.({ type: "end", content: accumulatedText });
           } else if (streamEvent.type === "error") {
+            setThinking(false);
             await onError?.(streamEvent.error || 'An error occurred');
           }
           // Add any other type handling as required.
