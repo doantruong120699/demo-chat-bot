@@ -62,9 +62,7 @@ const Login = () => {
       console.log('result', result);
       
       if (result.success) {
-        // Success - redirect to home page
-        console.log('Login successful!');
-        navigate('/', { replace: true });
+        navigate('/chat', { replace: true });
       } else {
         setErrors({ general: result.error });
       }
