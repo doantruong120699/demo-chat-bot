@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import Layout from '../components/Layout.jsx';
-import Messages from '../components/Messages.jsx';
+import Layout from '../components/AIAssistant/Layout.jsx';
+import Messages from '../components/AIAssistant/Messages.jsx';
 import { v4 as uuidv4 } from 'uuid';
 
 const Home = () => {

@@ -48,6 +48,7 @@ urlpatterns = (
     + [
         path("api/", include("accounts.urls")),
         path("api/", include("chat_service.urls")),
+        path("api/restaurant-booking/", include("restaurant_booking.urls")),
         path("admin/", admin.site.urls),
     ]
     + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

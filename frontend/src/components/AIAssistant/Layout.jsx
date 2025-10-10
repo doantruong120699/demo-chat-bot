@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAuth } from '../hooks/useAuth.js';
+import { useAuth } from '../../hooks/useAuth.js';
 import Header from './Header.jsx';
 import Sidebar from './Sidebar.jsx';
 

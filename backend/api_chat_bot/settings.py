@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "accounts",
     "chat_service",
     "pscds",
+    "restaurant_booking",
 ]
 
 MIDDLEWARE = [

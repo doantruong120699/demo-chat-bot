@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
-import { useStreamingResponse } from "../hooks/useStreamingResponse";
-import { useAuth } from "../hooks/useAuth";
-import { chat } from "../api/chat.js";
+import { useStreamingResponse } from "../../hooks/useStreamingResponse.js";
+import { useAuth } from "../../hooks/useAuth.js";
+import { chat } from "../../api/chat.js";
 import HumanMessage from "./HumanMessage";
 import BotMessage from "./BotMessage";
 

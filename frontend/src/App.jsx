@@ -1,7 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Home, Login } from './pages';
-import { ProtectedRoute, PublicRoute } from './components';
+import { Home, Login, WelcomeHome, RestaurantBooking, BookingSearch } from './pages';
 import { AuthProvider } from './contexts/AuthContext.jsx';
+import { ProtectedRoute, PublicRoute } from './components';
 import './App.css';
 import './styles/style.css';
 
@@ -20,9 +20,15 @@ function App() {
             } 
           />
           
-          {/* Protected Routes */}
+          {/* Welcome Home - Public */}
           <Route 
             path="/" 
+            element={<WelcomeHome />} 
+          />
+          
+          {/* Chat Routes - Protected */}
+          <Route 
+            path="/chat" 
             element={
               <ProtectedRoute>
                 <Home />
@@ -30,7 +36,6 @@ function App() {
             } 
           />
           
-          {/* Individual Chat Route */}
           <Route 
             path="/chat/:chatId" 
             element={
@@ -40,6 +45,16 @@ function App() {
             } 
           />
           
+          {/* Restaurant Booking Route - Public */}
+          <Route 
+            path="/restaurant-booking" 
+            element={<RestaurantBooking />} 
+          />
+
+          <Route 
+            path="/restaurant-booking/search" 
+            element={<BookingSearch />} 
+          />
           {/* Catch all route - redirect to home */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

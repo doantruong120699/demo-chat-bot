@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConversationItem from './ConversationItem';
-import { chat } from '../api/chat.js';
+import { chat } from '../../api/chat.js';
 
 const Conversation = ({ selectedChatId, onChatSelect, refreshTrigger }) => {
     const navigate = useNavigate();
