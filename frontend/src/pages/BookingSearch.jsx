@@ -266,31 +266,31 @@ const BookingSearch = () => {
                         <div className="space-y-4">
                           <div>
                             <p className="text-sm font-medium text-gray-500">Name</p>
-                            <p className="text-lg font-semibold text-gray-900">{booking.customer_name}</p>
+                            <p className="text-lg font-semibold text-gray-900">{booking.guest_name}</p>
                           </div>
                           
-                          {booking.customer_email && (
+                          {booking.guest_email && (
                             <div>
                               <p className="text-sm font-medium text-gray-500">Email</p>
-                              <p className="text-lg font-semibold text-gray-900">{booking.customer_email}</p>
+                              <p className="text-lg font-semibold text-gray-900">{booking.guest_email}</p>
                             </div>
                           )}
                           
-                          {booking.customer_phone && (
+                          {booking.guest_phone && (
                             <div>
                               <p className="text-sm font-medium text-gray-500">Phone</p>
-                              <p className="text-lg font-semibold text-gray-900">{booking.customer_phone}</p>
+                              <p className="text-lg font-semibold text-gray-900">{booking.guest_phone}</p>
                             </div>
                           )}
                         </div>
                       </div>
 
                       {/* Special Requests */}
-                      {booking.special_requests && (
+                      {booking.note && (
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900 mb-4">Special Requests</h3>
                           <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-700">{booking.special_requests}</p>
+                            <p className="text-gray-700">{booking.note}</p>
                           </div>
                         </div>
                       )}

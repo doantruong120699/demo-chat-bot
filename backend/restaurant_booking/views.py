@@ -261,7 +261,7 @@ def booking_list(request):
             booking_data = {
                 'id': booking.id,
                 'code': booking.code,
-                'customer_name': booking.customer_name,
+                'guest_name': booking.guest_name,
                 'table_id': booking.table.id,
                 'table_type': booking.table.get_table_type_display(),
                 'booking_date': booking.booking_date.strftime("%Y-%m-%d"),
@@ -366,7 +366,7 @@ def booking_create(request):
         booking_data = {
             'id': booking.id,
             'code': booking.code,
-            'customer_name': booking.customer_name,
+            'guest_name': booking.guest_name,
             'table_id': booking.table.id,
             'table_type': booking.table.get_table_type_display(),
             'booking_date': booking.booking_date.strftime("%Y-%m-%d"),
@@ -395,7 +395,7 @@ def booking_detail(request, booking_id):
         booking_data = {
             'id': booking.id,
             'code': booking.code,
-            'customer_name': booking.customer_name,
+            'guest_name': booking.guest_name,
             'customer_email': booking.customer_email,
             'customer_phone': booking.customer_phone,
             'table_id': booking.table.id,
@@ -519,7 +519,7 @@ def booking_search_by_code(request):
         booking_data = {
             'id': booking.id,
             'code': booking.code,
-            'customer_name': booking.customer_name,
+            'guest_name': booking.guest_name,
             'customer_email': booking.customer_email,
             'customer_phone': booking.customer_phone,
             'table_id': booking.table.id,

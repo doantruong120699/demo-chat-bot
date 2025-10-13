@@ -20,6 +20,9 @@ langchain
 langchain-openai
 langchain-community
 langchain-postgres
+langchain-anthropic
 python-docx
 pgvector
 openai
+anthropic
+requests

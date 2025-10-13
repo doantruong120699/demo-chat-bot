@@ -110,10 +110,6 @@ class Booking(DateTimeModel, SoftDeleteModel):
         verbose_name = "Booking"
         verbose_name_plural = "Bookings"
         ordering = ['-created_at']
-        indexes = [
-            models.Index(fields=['table', 'booking_date', 'booking_time']),
-            models.Index(fields=['status', 'booking_date']),
-        ]
 
     def __str__(self):
         guest_name = self.guest_name or "Guest"

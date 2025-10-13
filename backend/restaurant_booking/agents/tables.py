@@ -1,65 +1,37 @@
 from typing import Optional, List, Any
+from restaurant_booking.agents.io_models.input import TableSearchInput, NaturalTimeInput, BookingEntity
 from restaurant_booking.models import Table, Booking
 from datetime import datetime, timedelta
 from langchain_core.tools import StructuredTool, Tool
-from pydantic import BaseModel, Field, ConfigDict
 import re
 import json
-
-
-class TableSearchInput(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    party_size: int = Field(..., description="Số lượng người muốn đặt bàn")
-    booking_date: str = Field(..., description="Ngày đặt bàn (YYYY-MM-DD)")
-    booking_time: Optional[str] = Field(
-        None, description="Giờ đặt bàn (HH:MM, tùy chọn)"
-    )
-
-    table_type: Optional[str] = Field(
-        None,
-        description=(
-            "Loại bàn (tùy chọn), lựa chọn từ enum TableType: "
-            + ", ".join([f"{c.name} ({c.label})" for c in Table.TableType])
-        ),
-    )
-    floor: Optional[int] = Field(None, description="Tầng (tùy chọn)")
-
-
-class BookTableInput(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    table_id: int = Field(..., description="ID của bàn cần đặt")
-    booking_date: str = Field(..., description="Ngày đặt bàn (YYYY-MM-DD)")
-    booking_time: str = Field(..., description="Giờ đặt bàn (HH:MM)")
-    party_size: int = Field(..., description="Số lượng người")
-    guest_name: str = Field(..., description="Tên khách hàng")
-    guest_phone: str = Field(..., description="Số điện thoại khách hàng")
-    guest_email: str = Field(..., description="Email khách hàng")
-    guest_notes: str = Field(..., description="Ghi chú khách hàng")
-
-
-class NaturalTimeInput(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    natural_time: str = Field(
-        ...,
-        description="Thời gian tự nhiên cần chuyển đổi (ví dụ: 'hôm nay', 'mai', 'tối nay', 'thứ bảy')",
-    )
-
+from datetime import datetime
 
 class TablesService:
     def _search_tables(
         self,
-        party_size: int,
-        booking_date: str,
+        party_size: Optional[int] = None,
+        booking_date: Optional[str] = None,
         booking_time: Optional[str] = None,
-        table_type: Optional[
-            str
-        ] = None,  # enum: INDOOR, OUTDOOR, PRIVATE, BAR, BOOTH, WINDOW
+        table_type: Optional[str] = None,
         floor: Optional[int] = None,
+        table_id: Optional[int] = None,
     ) -> str:
         """
         Tìm kiếm các bàn trống phù hợp với yêu cầu đặt bàn.
         """
         try:
+            # Kiểm tra thông tin bắt buộc trước khi tìm kiếm
+            missing_info = []
+            
+            if not booking_date:
+                missing_info.append("ngày đặt bàn")
+            if not party_size:
+                missing_info.append("số lượng khách")
+            
+            if missing_info:
+                return f"Để tìm kiếm bàn, PSCD cần thông tin: {', '.join(missing_info)}. Bạn có thể cung cấp thông tin này không?"
+            
             # Parse booking_date
             try:
                 date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
@@ -71,8 +43,10 @@ class TablesService:
 
             if table_type:
                 tables = tables.filter(table_type=table_type)
-            if floor is not None:
+            if floor:
                 tables = tables.filter(floor=floor)
+            if table_id:
+                tables = tables.filter(id=table_id)
             # Filter out tables that are booked at the given date (and time if provided)
             booked_tables = Booking.objects.filter(
                 booking_date=date_obj,
@@ -83,7 +57,6 @@ class TablesService:
             ).values_list("table_id", flat=True)
 
             # if booking_time:
-            #     from datetime import datetime as dt
             #     try:
             #         booking_time_obj = dt.strptime(booking_time, "%H:%M").time()
             #         print(booking_time_obj)
@@ -110,8 +83,6 @@ class TablesService:
             if not result:
                 return "Không tìm thấy bàn phù hợp với yêu cầu của bạn."
 
-            import json
-
             return json.dumps(result, ensure_ascii=False)
 
         except Exception as e:
@@ -119,44 +90,48 @@ class TablesService:
 
     def _book_table(
         self,
-        table_id: int,
         booking_date: str,
         booking_time: str,
         party_size: int,
+        table_type: str,
+        floor: int,
         guest_name: str,
         guest_phone: str,
-        guest_email: str,
-        guest_notes: str,
+        note: str = "",
     ) -> str:
         """
         Đặt bàn.
         """
         try:
-            table = Table.objects.get(id=table_id)
+            table = Table.objects.filter(status=Table.TableStatus.AVAILABLE, capacity__gte=party_size, table_type=table_type, floor=floor)
+            if not table:
+                return "Không tìm thấy bàn phù hợp với yêu cầu của bạn. Vui lòng thử lại với thông tin khác."
 
-            # Convert string dates to proper date/time objects
-            from datetime import datetime, date, time
+            table = table.first()
 
             booking_date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
             booking_time_obj = datetime.strptime(booking_time, "%H:%M").time()
 
-            # Create booking with proper field mapping
-            booking_data = {
-                "table": table,
-                "booking_date": booking_date_obj,
-                "booking_time": booking_time_obj,
-                "party_size": party_size,
-                "status": Booking.BookingStatus.CONFIRMED,
-                "source": Booking.BookingSource.WEBSITE,
-                "duration_hours": 2.0,
-                "contact_phone": guest_phone,
-                "contact_email": guest_email,
-                "guest_name": guest_name,
-                "guest_phone": guest_phone,
-                "guest_email": guest_email,
-            }
+            booking_data = BookingEntity(
+                booking_date=booking_date_obj,
+                booking_time=booking_time_obj,
+                party_size=party_size,
+                table=table,
+                table_type=table_type,
+                floor=floor,
+                guest_name=guest_name,
+                guest_phone=guest_phone,
+                note=note,
+            )
 
-            booking = Booking.objects.create(**booking_data)
+            booking_data = booking_data.model_dump()
+            
+            booking = Booking.objects.create(
+                **booking_data,
+                status=Booking.BookingStatus.CONFIRMED,
+                source=Booking.BookingSource.WEBSITE,
+                duration_hours=2.0,
+            )
 
         except Exception as e:
             return f"Lỗi khi đặt bàn: {str(e)}"
@@ -445,12 +420,18 @@ class TablesService:
                 name="book_table",
                 description=(
                     """Đặt bàn.
-                    Nhận vào: table_id (ID của bàn cần đặt), booking_date (YYYY-MM-DD), booking_time (HH:MM),
-                    party_size (số lượng người), customer_name (tên khách hàng), customer_phone (số điện thoại khách hàng),
-                    customer_email (email khách hàng), customer_notes (ghi chú khách hàng).
+                    Nhận vào: 
+                    booking_date (YYYY-MM-DD), 
+                    booking_time (HH:MM), 
+                    table_type (loại bàn),
+                    floor (tầng),
+                    party_size (số lượng người), 
+                    guest_name (tên khách hàng), 
+                    guest_phone (số điện thoại khách hàng),
+                    note (ghi chú của khách hàng).
                     Trả về thông báo thành công hoặc thông báo lỗi.
                     """
                 ),
-                args_schema=BookTableInput,
+                args_schema=BookingEntity,
             ),
         ]

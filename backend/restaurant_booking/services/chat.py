@@ -1,5 +1,5 @@
-import json
 import threading
+import json
 from restaurant_booking.agents.restaurant_booking_agent import RestaurantBookingAgent
 from langchain_core.callbacks import BaseCallbackHandler
 from queue import Queue
@@ -8,37 +8,49 @@ from queue import Queue
 class StreamingCallbackHandler(BaseCallbackHandler):
     def __init__(self, queue: Queue):
         self.queue = queue
-        self.finished = False
+        self.is_streaming = False
 
     def send(self, event_type: str, content=None):
         self.queue.put({"type": event_type, "content": content})
 
     def on_chain_start(self, *args, **kwargs):
+        self.is_streaming = True
         self.queue.put({"type": "start"})
 
     def on_llm_new_token(self, token: str, **kwargs):
+        if not self.is_streaming:
+            return
         if "image" in token:
             self.queue.put({"type": "image", "content": token})
-        if "table" in token:
+        elif "table" in token:
             self.queue.put({"type": "table", "content": token})
+        elif "entity" in token:
+            self.queue.put({"type": "entity", "content": token})
         else:
             self.queue.put({"type": "token", "content": token})
 
     def on_chain_end(self, *args, **kwargs):
+        self.is_streaming = False
         self.queue.put({"type": "end"})
-
+    
+    def on_chain_error(self, error, **kwargs):
+        self.is_streaming = False
+        self.queue.put({"type": "error", "content": str(error)})
 
 class RestaurantBookingChatService:
     def __init__(self):
         self.queue = Queue()
         self.callback_handler = StreamingCallbackHandler(self.queue)
-        self.agent = RestaurantBookingAgent(callbacks=[self.callback_handler], queue=self.queue).agent
+        self.agent_wrapper = RestaurantBookingAgent(callbacks=[self.callback_handler], queue=self.queue)
+        self.agent = self.agent_wrapper.agent
 
     def chat(self, request, data):
         user_input = data.get("user_input", "")
         chat_history = data.get("chat_history", [])
 
-        self._load_chat_history_into_agent_memory(self.agent, chat_history)
+        # Load chat history into memory if provided
+        if chat_history:
+            self._load_chat_history_into_agent_memory(self.agent, chat_history) 
 
         # Start the agent execution in a separate thread to allow streaming
         def run_agent():

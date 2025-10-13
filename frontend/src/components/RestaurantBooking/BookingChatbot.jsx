@@ -89,7 +89,7 @@ const BookingChatbot = ({ onClose, restaurant }) => {
         onError: (error) => {
           console.error("Streaming error:", error);
           findAndUpdateMessagesState(botMessageId, {
-            content: "Sorry, I encountered an error. Please try again: ",
+            content: "Xin lỗi đã xảy ra lỗi. Vui lòng thử lại sau",
           });
         },
       });

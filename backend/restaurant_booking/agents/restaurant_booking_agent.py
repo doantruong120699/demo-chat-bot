@@ -1,9 +1,7 @@
-import os
-
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferMemory
+from common.services.llm_service import get_llm_service, LLMProvider
 from queue import Queue
 from restaurant_booking.agents.tables import TablesService
 
@@ -11,13 +9,15 @@ from restaurant_booking.agents.tables import TablesService
 class RestaurantBookingAgent:
     """AI Agent for restaurant booking management"""
 
-    def __init__(self, callbacks=None, queue: Queue = None):
+    def __init__(self, callbacks=None, queue: Queue = None, llm_provider: LLMProvider = LLMProvider.OPENAI):
         self.callbacks = callbacks
         self.queue = queue
-        self.llm = ChatOpenAI(
-            model="gpt-4o-mini",
+        self.llm_provider = llm_provider
+        self.llm_service = get_llm_service()
+        self.llm = self.llm_service.create_agent_llm(
+            provider=llm_provider,
+            model="gpt-3.5-turbo" if llm_provider == LLMProvider.OPENAI else "claude-3-sonnet-20240229",
             temperature=0.1,
-            openai_api_key=os.getenv("OPENAI_API_KEY"),
             streaming=True,
             callbacks=self.callbacks,
         )
@@ -136,5 +136,6 @@ class RestaurantBookingAgent:
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=10,
-            callbacks=self.callbacks,
+            callbacks=self.callbacks
         )
+    

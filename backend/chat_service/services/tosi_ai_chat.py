@@ -2,28 +2,40 @@ import os
 import json
 import time
 from django.http import StreamingHttpResponse
-from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 from api_chat_bot import settings
 from langchain_community.docstore.document import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from common.services.llm_service import get_llm_service, LLMProvider
 import docx
 from ..models import create_document_embedding, Chat, Message
 from ..serializers import ChatHistoryListSerializer, ChatHistoryDetailSerializer
 
 class TosiAiChatService:
-    def __init__(self):
-        api_key = settings.OPENAI_API_KEY
-        if not api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is not set")
+    def __init__(self, llm_provider: LLMProvider = LLMProvider.OPENAI):
+        self.llm_provider = llm_provider
+        self.llm_service = get_llm_service()
         
-        model = "gpt-4o-mini"
+        # Get API key based on provider
+        if llm_provider == LLMProvider.OPENAI:
+            api_key = settings.OPENAI_API_KEY
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY environment variable is not set")
+        elif llm_provider == LLMProvider.CLAUDE:
+            api_key = os.getenv("ANTHROPIC_API_KEY")
+            if not api_key:
+                raise ValueError("ANTHROPIC_API_KEY environment variable is not set")
+        else:
+            api_key = None
 
-        self.llm = ChatOpenAI(
+        model = "gpt-4o-mini" if llm_provider == LLMProvider.OPENAI else "claude-3-sonnet-20240229"
+
+        self.llm = self.llm_service.create_agent_llm(
+            provider=llm_provider,
             model=model,
             temperature=0.7,
             streaming=True,
-            openai_api_key=api_key,
+            api_key=api_key,
             verbose=False,
         )
         

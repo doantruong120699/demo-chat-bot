@@ -1,5 +1,4 @@
 from api_chat_bot import settings
-from langchain_openai import ChatOpenAI
 from langchain.agents import AgentExecutor, create_openai_tools_agent
 from langchain.memory import ConversationBufferMemory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
@@ -7,15 +6,18 @@ from agents.services.pscd_projects import PSCDProjectsService
 from agents.services.pscd_users import PSCDUsersService
 from agents.services.pscd_requests import PSCDRequestsService
 from agents.services.pscd_logtime import PSCDLogTimeService
+from common.services.llm_service import get_llm_service, LLMProvider
 from queue import Queue
 class PscdAgent:
-    def __init__(self, callbacks=None, queue: Queue = None):
+    def __init__(self, callbacks=None, queue: Queue = None, llm_provider: LLMProvider = LLMProvider.OPENAI):
         self.callbacks = callbacks
         self.queue = queue
-        self.llm = ChatOpenAI(
-            model_name="gpt-4o-mini", 
-            api_key=settings.OPENAI_API_KEY, 
-            streaming=True, 
+        self.llm_provider = llm_provider
+        self.llm_service = get_llm_service()
+        self.llm = self.llm_service.create_agent_llm(
+            provider=llm_provider,
+            model="gpt-4o-mini" if llm_provider == LLMProvider.OPENAI else "claude-3-sonnet-20240229",
+            streaming=True,
             callbacks=self.callbacks
         )
 
@@ -25,6 +27,18 @@ class PscdAgent:
     def _send(self, type_, content=None):
         for cb in self.callbacks:
             cb.send(type_, content)
+    
+    def switch_llm_provider(self, provider: LLMProvider):
+        """Switch to a different LLM provider"""
+        self.llm_provider = provider
+        self.llm = self.llm_service.create_agent_llm(
+            provider=provider,
+            model="gpt-4o-mini" if provider == LLMProvider.OPENAI else "claude-3-sonnet-20240229",
+            streaming=True,
+            callbacks=self.callbacks
+        )
+        # Recreate agent with new LLM
+        self.agent = self._create_agent()
 
     def _create_system_prompt(self):
         """Create custom system prompt for PSCD AI Assistant"""
