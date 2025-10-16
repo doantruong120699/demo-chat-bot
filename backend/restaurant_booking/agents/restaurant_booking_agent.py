@@ -111,7 +111,7 @@ class RestaurantBookingAgent:
         Sau khi khách đã chọn bàn, hãy hỏi lần lượt thông tin cá nhân để hoàn tất đặt bàn:
         (1) Họ tên (guest_name): hỏi “Anh/chị vui lòng cho em xin họ tên để em ghi lại đặt bàn nhé?”.
         (2) Số điện thoại (guest_phone): hỏi “Dạ cho em xin số điện thoại để nhà hàng tiện liên hệ ạ?”.
-        (3) Ghi chú (note, tùy chọn): hỏi “Anh/chị có muốn để lại ghi chú gì thêm cho buổi đặt bàn không ạ? Ví dụ: bàn gần cửa sổ, sinh nhật, v.v.”. Nếu khách không có ghi chú thì bỏ qua.
+        (3) Ghi chú (note, tùy chọn): hỏi “Anh/chị có muốn để lại ghi chú gì thêm cho buổi đặt bàn không ạ? Ví dụ: tiệc công ty, trang trí theo yêu cầu, sinh nhật, v.v.”. Nếu khách không có ghi chú thì bỏ qua.
         Tuyệt đối không tiến hành đặt bàn nếu thiếu họ tên hoặc số điện thoại.
 
         Bước 4: Xác nhận và đặt bàn.
