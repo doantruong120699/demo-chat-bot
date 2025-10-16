@@ -1,6 +1,7 @@
 import json
 from langchain.schema import SystemMessage, HumanMessage
 from datetime import datetime, timedelta
+from restaurant_booking.agents.time_processor import VietnameseTimeProcessor
 
 class ConversationEntityExtractor:
     """
@@ -37,6 +38,9 @@ class ConversationEntityExtractor:
 
         self.callbacks = callbacks
         self.queue = queue
+        
+        # Initialize time processor
+        self.time_processor = VietnameseTimeProcessor()
 
     def extract(self, chat_history, user_input):
         """
@@ -92,12 +96,30 @@ class ConversationEntityExtractor:
         today_weekday = datetime.now().weekday() + 2 
         today_time = datetime.now().strftime("%H:%M:%S")
 
+        # Xử lý thời gian trước khi trích xuất entity
+        processed_input = self._preprocess_time_expressions(user_input)
+        
         system_message = SystemMessage(content=entity_extraction_system_prompt.format(today, today_time, yesterday, tomorrow, today_weekday))
-        messages = [system_message] + chat_history + [HumanMessage(content=user_input)]
+        messages = [system_message] + chat_history + [HumanMessage(content=processed_input)]
         print(f"=========================== Entity extraction messages: {messages}")
         result = self.llm.invoke(messages)
         print(f"=========================== Entity extraction result: {result.content.strip()}")
         return self._parse_entity(result.content.strip())
+
+    def _preprocess_time_expressions(self, user_input: str) -> str:
+        """
+        Xử lý các biểu thức thời gian trong input của user
+        """
+        # Kiểm tra xem có chứa biểu thức thời gian không
+        if self.time_processor.is_time_expression(user_input):
+            # Cải thiện khả năng hiểu thời gian
+            enhanced_input = self.time_processor.enhance_time_understanding(user_input)
+            print(f"=========================== Time processing in entity extraction:")
+            print(f"Original input: {user_input}")
+            print(f"Enhanced input: {enhanced_input}")
+            return enhanced_input
+        
+        return user_input
 
     def _parse_entity(self, entity_text):
         """Parse the entity text into a dictionary"""

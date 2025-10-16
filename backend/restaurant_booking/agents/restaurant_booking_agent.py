@@ -6,6 +6,7 @@ from queue import Queue
 from restaurant_booking.agents.tables import TablesService
 from datetime import datetime, timedelta
 from restaurant_booking.agents.extract_entity import ConversationEntityExtractor
+from restaurant_booking.agents.time_processor import VietnameseTimeProcessor
 
 
 class RestaurantBookingAgent:
@@ -49,6 +50,9 @@ class RestaurantBookingAgent:
 
         # Initialize extract entity
         self.extract_entity = ConversationEntityExtractor(self.llm, callbacks=self.callbacks, queue=self.queue)
+        
+        # Initialize time processor
+        self.time_processor = VietnameseTimeProcessor()
 
     def _create_tools(self):
         """Create tools for the agent"""
@@ -101,10 +105,10 @@ class RestaurantBookingAgent:
         Khi đã có đủ năm thông tin trên thì chuyển sang bước tiếp theo.
 
         Bước 2: Gợi ý bàn và cho khách chọn bàn.        
-        Gọi tool search_tables với các tham số (booking_date, booking_time, party_size, table_type, floor) để gợi ý bàn phù hợp.
+        Gọi tool search_tables với các tham số (booking_date, booking_time, party_size, table_type, floor) để gợi ý bàn phù hợp. Bắt buộc phải trả về  table_id
         Nếu có nhiều bàn phù hợp, hãy gợi ý cho khách chọn bàn.
         Nếu không có bàn phù hợp, hãy thông báo cho khách và hỏi lại thông tin đặt bàn.
-        Nếu có một bàn duy nhất phù hợp, hãy xác nhận nhẹ nhàng: “Hiện chỉ còn bàn số 8 phù hợng, em giữ bàn đó cho anh/chị nhé?”. Chờ khách xác nhận rõ ràng trước khi tiếp tục.
+        Nếu có một bàn duy nhất phù hợp, hãy xác nhận nhẹ nhàng: “Hiện chỉ còn bàn số <table_id> phù hợp, em giữ bàn đó cho anh/chị nhé?”. Chờ khách xác nhận rõ ràng trước khi tiếp tục.
 
         Bước 3: Thu thập thông tin khách hàng.
         Sau khi khách đã chọn bàn, hãy hỏi lần các thông tin cá nhân của khách hàng:
@@ -193,14 +197,33 @@ class RestaurantBookingAgent:
         # Restore memory
         self.agent.memory = current_memory
 
+    def _preprocess_time_expressions(self, user_input: str) -> str:
+        """
+        Xử lý các biểu thức thời gian trong input của user
+        """
+        # Kiểm tra xem có chứa biểu thức thời gian không
+        if self.time_processor.is_time_expression(user_input):
+            # Cải thiện khả năng hiểu thời gian
+            enhanced_input = self.time_processor.enhance_time_understanding(user_input)
+            print(f"=========================== Time processing:")
+            print(f"Original input: {user_input}")
+            print(f"Enhanced input: {enhanced_input}")
+            return enhanced_input
+        
+        return user_input
+
     def run(self, user_input: str) -> str:
         """Invoke the agent"""
         print("===========================Memory:")
         print(self.agent.memory.chat_memory.messages)
+        
+        # Xử lý thời gian trước khi gửi cho agent
+        processed_input = self._preprocess_time_expressions(user_input)
+        
         # extract entity
         # self.entity = self.extract_entity.extract(self.agent.memory.chat_memory.messages, user_input)
         
         # # Update the agent with new entity information
         # self._update_agent_with_entity()
         
-        return self.agent.invoke({"input": user_input})
+        return self.agent.invoke({"input": processed_input})
