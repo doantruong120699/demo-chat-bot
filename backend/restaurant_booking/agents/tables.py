@@ -1,68 +1,55 @@
 from typing import Optional, List, Any
-from restaurant_booking.agents.io_models.input import TableSearchInput, NaturalTimeInput, BookingEntity
+from restaurant_booking.agents.io_models.input import (
+    TableSearchInput,
+    TableIdInput,
+    BookingEntity,
+)
 from restaurant_booking.models import Table, Booking
-from datetime import datetime, timedelta
-from langchain_core.tools import StructuredTool, Tool
-import re
-import json
+from datetime import datetime
+from langchain_core.tools import StructuredTool
 from datetime import datetime
 
+
 class TablesService:
+
     def _search_tables(
         self,
-        party_size: Optional[int] = None,
-        booking_date: Optional[str] = None,
-        booking_time: Optional[str] = None,
-        table_type: Optional[str] = None,
-        floor: Optional[int] = None,
+        booking_date: str = None,
+        booking_time: str = None,
+        table_type: str = None,
+        party_size: int = None,
+        floor: int = None,
         table_id: Optional[int] = None,
     ) -> str:
         """
         Tìm kiếm các bàn trống phù hợp với yêu cầu đặt bàn.
         """
         try:
-            # Kiểm tra thông tin bắt buộc trước khi tìm kiếm
-            missing_info = []
-            
-            if not booking_date:
-                missing_info.append("ngày đặt bàn")
-            if not party_size:
-                missing_info.append("số lượng khách")
-            
-            if missing_info:
-                return f"Để tìm kiếm bàn, PSCD cần thông tin: {', '.join(missing_info)}. Bạn có thể cung cấp thông tin này không?"
-            
-            # Parse booking_date
-            try:
-                date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
-            except Exception:
-                return "Không tìm thấy bàn: Ngày đặt không hợp lệ."
+            error = self.validate_search_tables_info(booking_date, booking_time, table_type, party_size, floor)
+            if error:
+                return error
 
-            # Base queryset
-            tables = Table.objects.filter(is_deleted=False, capacity__gte=party_size)
+            tables = Table.objects.filter(
+                is_deleted=False,
+                capacity__gte=party_size,
+                table_type=table_type,
+                floor=floor,
+            )
 
-            if table_type:
-                tables = tables.filter(table_type=table_type)
-            if floor:
-                tables = tables.filter(floor=floor)
             if table_id:
                 tables = tables.filter(id=table_id)
-            # Filter out tables that are booked at the given date (and time if provided)
+
+            date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
+            booking_time_obj = datetime.strptime(booking_time, "%H:%M").time()
             booked_tables = Booking.objects.filter(
                 booking_date=date_obj,
+                # booking_time__gte=booking_time_obj,
+                # booking_time__lte=booking_time_obj + timedelta(hours=2),
                 status__in=[
                     Booking.BookingStatus.CONFIRMED,
                     Booking.BookingStatus.PENDING,
                 ],
             ).values_list("table_id", flat=True)
-
-            # if booking_time:
-            #     try:
-            #         booking_time_obj = dt.strptime(booking_time, "%H:%M").time()
-            #         print(booking_time_obj)
-            #     except Exception:
-            #         return "Không tìm thấy bàn: Giờ đặt không hợp lệ."
-            #     tables = tables.filter(bookings__booking_time=booking_time_obj)
 
             available_tables = tables.exclude(id__in=booked_tables)
 
@@ -71,7 +58,7 @@ class TablesService:
             for table in available_tables:
                 result.append(
                     {
-                        "id": table.id,
+                        "table_id": table.id,
                         "table_type": table.get_table_type_display(),
                         "capacity": table.capacity,
                         "floor": table.floor,
@@ -83,13 +70,33 @@ class TablesService:
             if not result:
                 return "Không tìm thấy bàn phù hợp với yêu cầu của bạn."
 
-            return json.dumps(result, ensure_ascii=False)
+            return result
 
         except Exception as e:
             return f"Lỗi khi tìm kiếm bàn: {str(e)}"
 
+    def _get_table_by_id(self, table_id: int) -> str:
+        """
+        Lấy thông tin bàn theo ID.
+        """
+        try:
+            table = Table.objects.get(id=table_id)
+            result = f"""
+            Thông tin bàn:
+            Số: {table.id}
+            Loại bàn: {table.get_table_type_display()}
+            Sức chứa: {table.capacity}
+            Chiều rộng: {table.width}
+            Chiều dài: {table.length}
+            Tầng: {table.floor}
+            """
+            return result
+        except Exception as e:
+            return f"Lỗi khi lấy thông tin bàn: {str(e)}"
+
     def _book_table(
         self,
+        table_id: int,
         booking_date: str,
         booking_time: str,
         party_size: int,
@@ -103,7 +110,14 @@ class TablesService:
         Đặt bàn.
         """
         try:
-            table = Table.objects.filter(status=Table.TableStatus.AVAILABLE, capacity__gte=party_size, table_type=table_type, floor=floor)
+            error = self.validate_guest_info(guest_name, guest_phone, note)
+            if error:
+                return error
+
+            table = Table.objects.filter(
+                id=table_id,
+                status=Table.TableStatus.AVAILABLE,
+            )
             if not table:
                 return "Không tìm thấy bàn phù hợp với yêu cầu của bạn. Vui lòng thử lại với thông tin khác."
 
@@ -112,22 +126,26 @@ class TablesService:
             booking_date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
             booking_time_obj = datetime.strptime(booking_time, "%H:%M").time()
 
-            booking_data = BookingEntity(
+            # booking_data = BookingEntity(
+            #     table_id=table_id,
+            #     booking_date=booking_date,
+            #     booking_time=booking_time,
+            #     party_size=party_size,
+            #     guest_name=guest_name,
+            #     guest_phone=guest_phone,
+            #     note=note,
+            # )
+
+            # booking_data_dict = booking_data.model_dump()
+
+            booking = Booking.objects.create(
+                table_id=table_id,
+                guest_name=guest_name,
+                guest_phone=guest_phone,
                 booking_date=booking_date_obj,
                 booking_time=booking_time_obj,
                 party_size=party_size,
-                table=table,
-                table_type=table_type,
-                floor=floor,
-                guest_name=guest_name,
-                guest_phone=guest_phone,
-                note=note,
-            )
-
-            booking_data = booking_data.model_dump()
-            
-            booking = Booking.objects.create(
-                **booking_data,
+                notes=note,
                 status=Booking.BookingStatus.CONFIRMED,
                 source=Booking.BookingSource.WEBSITE,
                 duration_hours=2.0,
@@ -136,248 +154,63 @@ class TablesService:
         except Exception as e:
             return f"Lỗi khi đặt bàn: {str(e)}"
 
-        return f"Đã đặt bàn thành công. Mã đặt bàn: {booking.code}"
+        return f"Đã đặt bàn thành công. Mã đặt bàn: {booking.code}. Bạn có thể tra cứu thông tin đặt bàn tại đây: http://chatai.pscds.com/restaurant-booking/search?code={booking.code}"
 
-    def _get_current_datetime(self) -> str:
+    def _summary_booking_info(
+        self, 
+        table_id: int = None,
+        booking_date: str = None,
+        booking_time: str = None,
+        party_size: int = None,
+        table_type: str = None,
+        floor: int = None,
+        guest_name: str = None,
+        guest_phone: str = None,
+        note: str = None
+    ) -> str:
         """
-        Lấy thời gian hiện tại của hệ thống.
+        Summary booking information.
         """
-        try:
-            now = datetime.now()
-            return json.dumps(
-                {
-                    "current_date": now.strftime("%Y-%m-%d"),
-                    "current_time": now.strftime("%H:%M"),
-                    "current_datetime": now.strftime("%Y-%m-%d %H:%M:%S"),
-                    "weekday": now.strftime("%A"),
-                    "weekday_vietnamese": self._get_vietnamese_weekday(now.weekday()),
-                },
-                ensure_ascii=False,
-            )
-        except Exception as e:
-            return f"Lỗi khi lấy thời gian hiện tại: {str(e)}"
-
-    def _get_vietnamese_weekday(self, weekday: int) -> str:
-        """Chuyển đổi thứ từ số sang tiếng Việt"""
-        weekdays = [
-            "thứ hai",
-            "thứ ba",
-            "thứ tư",
-            "thứ năm",
-            "thứ sáu",
-            "thứ bảy",
-            "chủ nhật",
-        ]
-        return weekdays[weekday]
-
-    def _parse_natural_time(self, natural_time: str) -> str:
+        return f"""Em xin xác nhận lại thông tin đặt bàn:
+        Thông tin đặt bàn:
+        Bàn số: {table_id}
+        Ngày đặt bàn: {booking_date}
+        Giờ đặt bàn: {booking_time}
+        Số lượng người: {party_size}
+        Loại bàn: {table_type}
+        Tầng: {floor}
+        Tên khách: {guest_name}
+        Số điện thoại: {guest_phone}
+        Ghi chú: {note}
+        Anh/chị vui lòng xác nhận thông tin trên đã đúng chưa ạ?
         """
-        Chuyển đổi thời gian tự nhiên sang định dạng chuẩn.
+
+    def validate_guest_info(self, guest_name: str, guest_phone: str, note: str = None) -> str:
         """
-        try:
-            now = datetime.now()
-            natural_time = natural_time.lower().strip()
+        Validate guest information.
+        """
+        if not guest_name or not guest_phone:
+            return f"Hỏi thông tin: guest_name và guest_phone của khách hàng."
+        if note is None:
+            return f"Hỏi thông tin: note của khách hàng."
+        return None
 
-            # Xử lý các trường hợp đặc biệt
-            if natural_time in ["hôm nay", "ngày hôm nay"]:
-                date = now.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            elif natural_time in ["mai", "ngày mai"]:
-                tomorrow = now + timedelta(days=1)
-                date = tomorrow.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            elif natural_time in ["ngày kia"]:
-                day_after = now + timedelta(days=2)
-                date = day_after.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            elif natural_time in ["tối nay", "tối nay"]:
-                date = now.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            elif natural_time in ["sáng nay", "sáng nay"]:
-                date = now.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            elif natural_time in ["trưa nay", "trưa nay"]:
-                date = now.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            elif natural_time in ["chiều nay", "chiều nay"]:
-                date = now.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            # Xử lý thứ trong tuần
-            elif "thứ" in natural_time:
-                target_weekday = self._parse_weekday(natural_time)
-                if target_weekday is not None:
-                    days_ahead = target_weekday - now.weekday()
-                    if days_ahead <= 0:  # Nếu thứ đó đã qua trong tuần này
-                        days_ahead += 7  # Chuyển sang tuần sau
-
-                    target_date = now + timedelta(days=days_ahead)
-                    date = target_date.strftime("%Y-%m-%d")
-                    return json.dumps(
-                        {
-                            "date": date,
-                            # "time": time,
-                            # "datetime": f"{date} {time}",
-                            "original": natural_time,
-                        },
-                        ensure_ascii=False,
-                    )
-
-            # Xử lý cuối tuần
-            elif natural_time in ["cuối tuần", "cuối tuần này", "cuối tuần này"]:
-                # Tìm thứ bảy gần nhất
-                days_until_saturday = (5 - now.weekday()) % 7
-                if days_until_saturday == 0 and now.weekday() == 5:
-                    days_until_saturday = (
-                        7  # Nếu hôm nay là thứ bảy, lấy thứ bảy tuần sau
-                    )
-                elif days_until_saturday == 0:
-                    days_until_saturday = 7
-
-                saturday = now + timedelta(days=days_until_saturday)
-                date = saturday.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time,
-                        # "datetime": f"{date} {time}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            # Xử lý thời gian với giờ cụ thể
-            time_pattern = r"(\d{1,2}):(\d{2})"
-            time_match = re.search(time_pattern, natural_time)
-            if time_match:
-                hour = int(time_match.group(1))
-                minute = int(time_match.group(2))
-                time_str = f"{hour:02d}:{minute:02d}"
-
-                # Xác định ngày
-                if "mai" in natural_time or "ngày mai" in natural_time:
-                    target_date = now + timedelta(days=1)
-                elif "hôm nay" in natural_time or "nay" in natural_time:
-                    target_date = now
-                else:
-                    target_date = now
-
-                date = target_date.strftime("%Y-%m-%d")
-                return json.dumps(
-                    {
-                        "date": date,
-                        # "time": time_str,
-                        # "datetime": f"{date} {time_str}",
-                        "original": natural_time,
-                    },
-                    ensure_ascii=False,
-                )
-
-            # Nếu không nhận diện được, trả về thời gian hiện tại
-            return json.dumps(
-                {
-                    "date": now.strftime("%Y-%m-%d"),
-                    # "time": now.strftime("%H:%M"),
-                    # "datetime": f"{now.strftime('%Y-%m-%d')} {now.strftime('%H:%M')}",
-                    "original": natural_time,
-                    "note": "Không nhận diện được thời gian, sử dụng thời gian hiện tại",
-                },
-                ensure_ascii=False,
-            )
-
-        except Exception as e:
-            return f"Lỗi khi chuyển đổi thời gian: {str(e)}"
-
-    def _parse_weekday(self, text: str) -> Optional[int]:
-        """Chuyển đổi thứ từ tiếng Việt sang số (0=thứ hai, 6=chủ nhật)"""
-        weekday_map = {
-            "thứ hai": 0,
-            "thứ 2": 0,
-            "t2": 0,
-            "thứ ba": 1,
-            "thứ 3": 1,
-            "t3": 1,
-            "thứ tư": 2,
-            "thứ 4": 2,
-            "t4": 2,
-            "thứ năm": 3,
-            "thứ 5": 3,
-            "t5": 3,
-            "thứ sáu": 4,
-            "thứ 6": 4,
-            "t6": 4,
-            "thứ bảy": 5,
-            "thứ 7": 5,
-            "t7": 5,
-            "chủ nhật": 6,
-            "cn": 6,
-        }
-
-        for key, value in weekday_map.items():
-            if key in text.lower():
-                return value
+    def validate_search_tables_info(self, booking_date: str, booking_time: str, table_type: str, party_size: int, floor: int) -> str:
+        """
+        Validate table information.
+        """
+        if not booking_date and not booking_time:
+            return f"Hỏi thông tin: booking_date và booking_time của khách hàng."
+        if not booking_date:
+            return f"Hỏi thông tin: booking_date của khách hàng."
+        if not booking_time:
+            return f"Hỏi thông tin: booking_time của khách hàng."
+        if not table_type:
+            return f"Hỏi thông tin: table_type của khách hàng."
+        if not party_size:
+            return f"Hỏi thông tin: party_size của khách hàng."
+        if not floor:
+            return f"Hỏi thông tin: floor của khách hàng."
         return None
 
     def create_tools(self) -> List[Any]:
@@ -387,33 +220,18 @@ class TablesService:
                 name="search_tables",
                 description=(
                     """Tìm kiếm các bàn trống phù hợp với yêu cầu đặt bàn.
-                    Nhận vào: party_size (số người), booking_date (YYYY-MM-DD), 
-                    booking_time (tùy chọn, HH:MM), table_type (tùy chọn), floor (tùy chọn),
+                    Nhận vào: 
+                    booking_date: Ngày đặt bàn (YYYY-MM-DD),
+                    booking_time: Giờ đặt bàn (HH:MM), 
+                    table_type: Loại bàn,
+                    party_size: Số người, 
+                    floor: Tầng, 
+                    table_id: ID bàn (tùy chọn).
                     Trả về danh sách bàn phù hợp hoặc thông báo nếu không có bàn.
+                    Chỉ được gọi khi tất cả tham số đã được cung cấp rõ ràng từ người dùng. Không được tự suy đoán hoặc sử dụng giá trị mặc định
                     """
                 ),
                 args_schema=TableSearchInput,
-            ),
-            StructuredTool.from_function(
-                func=self._get_current_datetime,
-                name="get_current_datetime",
-                description=(
-                    """Lấy thời gian hiện tại của hệ thống.
-                    Trả về thông tin ngày giờ hiện tại, thứ trong tuần bằng tiếng Việt.
-                    """
-                ),
-            ),
-            StructuredTool.from_function(
-                func=self._parse_natural_time,
-                name="parse_natural_time",
-                description=(
-                    """Chuyển đổi thời gian tự nhiên sang định dạng chuẩn ISO.
-                    Hỗ trợ các từ khóa: 'hôm nay', 'mai', 'ngày kia', 'tối nay', 'sáng nay', 
-                    'trưa nay', 'chiều nay', 'thứ bảy', 'thứ hai', 'cuối tuần', v.v.
-                    Trả về JSON với date (YYYY-MM-DD), time (HH:MM), datetime (YYYY-MM-DD HH:MM).
-                    """
-                ),
-                args_schema=NaturalTimeInput,
             ),
             StructuredTool.from_function(
                 func=self._book_table,
@@ -421,15 +239,44 @@ class TablesService:
                 description=(
                     """Đặt bàn.
                     Nhận vào: 
+                    table_id (ID của bàn),
                     booking_date (YYYY-MM-DD), 
                     booking_time (HH:MM), 
-                    table_type (loại bàn),
-                    floor (tầng),
                     party_size (số lượng người), 
                     guest_name (tên khách hàng), 
                     guest_phone (số điện thoại khách hàng),
                     note (ghi chú của khách hàng).
                     Trả về thông báo thành công hoặc thông báo lỗi.
+                    """
+                ),
+                args_schema=BookingEntity,
+            ),
+            StructuredTool.from_function(
+                func=self._get_table_by_id,
+                name="get_table_by_id",
+                description=(
+                    """Lấy thông tin bàn theo ID.
+                    Nhận vào: table_id (ID của bàn).
+                    Trả về thông tin bàn.
+                    """
+                ),
+                args_schema=TableIdInput,
+            ),
+            StructuredTool.from_function(
+                func=self._summary_booking_info,
+                name="summary_booking_info",
+                description=(
+                    """Tóm tắt thông tin đặt bàn và yêu cầu xác nhận.
+                    Nhận vào: table_id (ID của bàn),
+                    booking_date (YYYY-MM-DD),
+                    booking_time (HH:MM),
+                    party_size (số lượng người),
+                    table_type (loại bàn),
+                    floor (tầng),
+                    guest_name (tên khách hàng),
+                    guest_phone (số điện thoại khách hàng),
+                    note (ghi chú của khách hàng).
+                    Trả về thông tin đặt bàn và yêu cầu xác nhận.
                     """
                 ),
                 args_schema=BookingEntity,

@@ -8,33 +8,20 @@ from queue import Queue
 class StreamingCallbackHandler(BaseCallbackHandler):
     def __init__(self, queue: Queue):
         self.queue = queue
-        self.is_streaming = False
 
     def send(self, event_type: str, content=None):
         self.queue.put({"type": event_type, "content": content})
 
     def on_chain_start(self, *args, **kwargs):
-        self.is_streaming = True
         self.queue.put({"type": "start"})
 
     def on_llm_new_token(self, token: str, **kwargs):
-        if not self.is_streaming:
-            return
-        if "image" in token:
-            self.queue.put({"type": "image", "content": token})
-        elif "table" in token:
-            self.queue.put({"type": "table", "content": token})
-        elif "entity" in token:
-            self.queue.put({"type": "entity", "content": token})
-        else:
-            self.queue.put({"type": "token", "content": token})
+        self.queue.put({"type": "token", "content": token})
 
     def on_chain_end(self, *args, **kwargs):
-        self.is_streaming = False
         self.queue.put({"type": "end"})
     
     def on_chain_error(self, error, **kwargs):
-        self.is_streaming = False
         self.queue.put({"type": "error", "content": str(error)})
 
 class RestaurantBookingChatService:
@@ -55,7 +42,7 @@ class RestaurantBookingChatService:
         # Start the agent execution in a separate thread to allow streaming
         def run_agent():
             try:
-                result = self.agent.invoke({"input": user_input})
+                result = self.agent_wrapper.run(user_input)
             except Exception as e:
                 print(e)
                 self.callback_handler.send("error", str(e))

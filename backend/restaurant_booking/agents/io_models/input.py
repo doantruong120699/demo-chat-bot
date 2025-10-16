@@ -2,28 +2,24 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 from restaurant_booking.models.table import Table
 
+class TableIdInput(BaseModel):
+    table_id: int = Field(..., description="ID của bàn")
 
 class TableSearchInput(BaseModel):
-    booking_date: Optional[str] = Field(None, description="Ngày đặt bàn (YYYY-MM-DD)")
-    booking_time: Optional[str] = Field(None, description="Giờ đặt bàn (HH:MM)")
-    table_type: Optional[str] = Field(
-        None,
-        description=(
-            "Loại bàn, lựa chọn từ các loại bàn sau: "
-            + ", ".join([f"{c.name} ({c.label})" for c in Table.TableType])
-        ),
-    )
-    party_size: Optional[int] = Field(None, description="Số lượng người muốn đặt bàn")
-    floor: Optional[int] = Field(None, description="Tầng")
+    booking_date: Optional[str] = None
+    booking_time: Optional[str] = None
+    table_type: Optional[str] = None
+    party_size: int = None
+    floor: int = None
 
 class GuestInformation(BaseModel):
-    guest_name: Optional[str] = Field(None, description="Tên khách hàng")
-    guest_phone: Optional[str] = Field(None, description="Số điện thoại khách hàng")
-    note: Optional[str] = Field(None, description="Ghi chú khách hàng")
+    guest_name: Optional[str] = None
+    guest_phone: Optional[str] = None
+    note: Optional[str] = None
 
 class BookingEntity(TableSearchInput, GuestInformation):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    table_id: Optional[int] = Field(None, description="ID của bàn liên kết với đặt bàn (nếu có)")
+    table_id: Optional[int] = None
 
     def model_dump(self):
         """Convert to dictionary for memory storage"""

@@ -105,7 +105,7 @@ const RestaurantBooking = () => {
       const bookingData = {
         table_id: selectedTable.id,
         customer_name: formData.customerName,
-        customer_phone: formData.phone,
+        guest_phone: formData.phone,
         customer_email: formData.email,
         party_size: partySize,
         booking_date: selectedDate.toISOString().split('T')[0],

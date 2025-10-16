@@ -50,7 +50,7 @@ class TableAdmin(admin.ModelAdmin):
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
     list_display = [
-        'id', 'customer_name_display', 'table_display', 'booking_date',
+        'id', 'guest_name', 'table_display', 'booking_date',
         'booking_time', 'party_size', 'status', 'source', 'created_at', 'updated_at'
     ]
     list_filter = [
@@ -91,10 +91,6 @@ class BookingAdmin(admin.ModelAdmin):
     readonly_fields = [
         'created_at', 'updated_at',
     ]
-
-    def customer_name_display(self, obj):
-        return obj.guest_name or "Guest"
-    customer_name_display.short_description = 'Guest Name'
 
     def table_display(self, obj):
         return f"Table {obj.table.id} ({obj.table.get_table_type_display()})"

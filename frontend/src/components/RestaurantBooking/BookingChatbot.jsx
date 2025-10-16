@@ -103,9 +103,9 @@ const BookingChatbot = ({ onClose, restaurant }) => {
 
   const quickActions = [
     "Hôm nay có bàn trống không?",
-    "Tôi tìm bàn cho 2 người",
-    "Tôi tìm bàn cho 4 người",
-    "Giờ hoạt động của bạn là bao nhiêu?",
+    "Tôi cần tìm bàn cho 2 người",
+    "Tôi cần tìm bàn cho 4 người",
+    "Ngày mai có bàn trống lúc 17h không?",
   ];
 
   return (

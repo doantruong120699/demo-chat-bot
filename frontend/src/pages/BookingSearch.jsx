@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import RestaurantLayout from '../components/RestaurantBooking/RestaurantLayout.jsx';
 import { restaurant as restaurantApi } from '../api/index.js';
 import { 
@@ -16,10 +16,47 @@ import {
 
 const BookingSearch = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [searchCode, setSearchCode] = useState('');
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Get code from URL parameters
+  const code = searchParams.get('code');
+
+  // Handle code parameter - auto-populate search field if code is present
+  useEffect(() => {
+    if (code) {
+      console.log('Code from URL:', code);
+      setSearchCode(code.toUpperCase());
+      // Auto-search if code is present
+      const autoSearch = async () => {
+        setLoading(true);
+        setError(null);
+        setBooking(null);
+
+        try {
+          const response = await restaurantApi.searchBookingByCode(code.toUpperCase());
+          
+          if (response.data) {
+            setBooking(response.data);
+          } else {
+            setError('No booking found with this code. Please check your booking code and try again.');
+          }
+        } catch (err) {
+          console.error('Error searching booking:', err);
+          setError('Failed to search booking. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      // Small delay to ensure component is fully mounted
+      const timer = setTimeout(autoSearch, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [code]);
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -130,6 +167,16 @@ const BookingSearch = () => {
               <p className="text-lg text-gray-600 max-w-2xl mx-auto">
                 Enter your booking code to view your reservation details and status
               </p>
+              
+              {/* Code indicator */}
+              {code && (
+                <div className="mt-4 inline-flex items-center bg-green-100 border border-green-300 rounded-lg px-4 py-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <span className="text-sm font-medium text-green-800">
+                    Code from URL: {code}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Search Form */}
@@ -218,13 +265,13 @@ const BookingSearch = () => {
                     {/* Booking Information */}
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Booking Information</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin đặt bàn</h3>
                         
                         <div className="space-y-4">
                           <div className="flex items-center">
                             <CalendarIcon className="w-5 h-5 text-blue-600 mr-3" />
                             <div>
-                              <p className="text-sm font-medium text-gray-500">Date</p>
+                              <p className="text-sm font-medium text-gray-500">Ngày</p>
                               <p className="text-lg font-semibold text-gray-900">{formatDate(booking.booking_date)}</p>
                             </div>
                           </div>
@@ -232,7 +279,7 @@ const BookingSearch = () => {
                           <div className="flex items-center">
                             <ClockIcon className="w-5 h-5 text-green-600 mr-3" />
                             <div>
-                              <p className="text-sm font-medium text-gray-500">Time</p>
+                              <p className="text-sm font-medium text-gray-500">Giờ</p>
                               <p className="text-lg font-semibold text-gray-900">{formatTime(booking.booking_time)}</p>
                             </div>
                           </div>
@@ -240,7 +287,7 @@ const BookingSearch = () => {
                           <div className="flex items-center">
                             <UsersIcon className="w-5 h-5 text-purple-600 mr-3" />
                             <div>
-                              <p className="text-sm font-medium text-gray-500">Party Size</p>
+                              <p className="text-sm font-medium text-gray-500">Số người</p>
                               <p className="text-lg font-semibold text-gray-900">{booking.party_size} {booking.party_size === 1 ? 'person' : 'people'}</p>
                             </div>
                           </div>
@@ -250,7 +297,7 @@ const BookingSearch = () => {
                             <div>
                               <p className="text-sm font-medium text-gray-500">Table</p>
                               <p className="text-lg font-semibold text-gray-900">
-                                {booking.table_type} - Floor {booking.table_floor}
+                                {booking.table_type} - Tầng {booking.table_floor}
                               </p>
                             </div>
                           </div>
@@ -261,11 +308,11 @@ const BookingSearch = () => {
                     {/* Customer Information */}
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Customer Information</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4">Thông tin khách hàng</h3>
                         
                         <div className="space-y-4">
                           <div>
-                            <p className="text-sm font-medium text-gray-500">Name</p>
+                            <p className="text-sm font-medium text-gray-500">Tên</p>
                             <p className="text-lg font-semibold text-gray-900">{booking.guest_name}</p>
                           </div>
                           
@@ -278,7 +325,7 @@ const BookingSearch = () => {
                           
                           {booking.guest_phone && (
                             <div>
-                              <p className="text-sm font-medium text-gray-500">Phone</p>
+                              <p className="text-sm font-medium text-gray-500">Số điện thoại</p>
                               <p className="text-lg font-semibold text-gray-900">{booking.guest_phone}</p>
                             </div>
                           )}
@@ -286,11 +333,11 @@ const BookingSearch = () => {
                       </div>
 
                       {/* Special Requests */}
-                      {booking.note && (
+                      {booking.notes && (
                         <div>
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Special Requests</h3>
-                          <div className="bg-gray-50 rounded-lg p-4">
-                            <p className="text-gray-700">{booking.note}</p>
+                          <h3 className="text-lg font-semibold text-gray-900 mb-4">Ghi chú</h3>
+                          <div className="bg-gray-50 rounded-lg py-4">
+                            <p className="text-gray-700">{booking.notes}</p>
                           </div>
                         </div>
                       )}
@@ -304,7 +351,7 @@ const BookingSearch = () => {
                         onClick={() => navigate('/restaurant-booking')}
                         className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
                       >
-                        Make Another Booking
+                        Đặt bàn khác
                       </button>
                       
                       <button
