@@ -4,7 +4,6 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 import logging
 from django.conf import settings
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -14,11 +13,6 @@ class GoogleSheetsService:
     
     def __init__(self):
         """Initialize Google Sheets service"""
-        self.credentials_path = getattr(
-            settings, 
-            'GOOGLE_SHEETS_CREDENTIALS_PATH',
-            os.path.join(settings.BASE_DIR, 'order_bot/config/google_sheets_credentials.json')
-        )
         self.spreadsheet_id = getattr(
             settings,
             'GOOGLE_SHEETS_SPREADSHEET_ID',
@@ -36,13 +30,39 @@ class GoogleSheetsService:
         
         self._initialize()
     
+    def _get_credentials_dict(self) -> Optional[Dict[str, Any]]:
+        """
+        Get credentials dictionary from Django settings
+        
+        Returns:
+            Dictionary containing service account credentials or None
+        """
+        try:
+            credentials_dict = getattr(settings, 'GOOGLE_SERVICE_ACCOUNT', None)
+            
+            if not credentials_dict:
+                logger.warning("GOOGLE_SERVICE_ACCOUNT not configured in settings")
+                return None
+            
+            # Check required fields
+            required_fields = ['type', 'project_id', 'private_key', 'client_email']
+            for field in required_fields:
+                if not credentials_dict.get(field):
+                    logger.warning(f"Missing required field in GOOGLE_SERVICE_ACCOUNT: {field}")
+                    return None
+            
+            # Remove None values
+            credentials_dict = {k: v for k, v in credentials_dict.items() if v is not None}
+            
+            return credentials_dict
+            
+        except Exception as e:
+            logger.error(f"Error getting credentials from settings: {e}")
+            return None
+    
     def _initialize(self):
         """Initialize Google Sheets connection"""
         try:
-            if not os.path.exists(self.credentials_path):
-                logger.warning(f"Google Sheets credentials not found at: {self.credentials_path}")
-                return
-            
             if not self.spreadsheet_id:
                 logger.warning("GOOGLE_SHEETS_SPREADSHEET_ID not configured")
                 return
@@ -53,9 +73,15 @@ class GoogleSheetsService:
                 'https://www.googleapis.com/auth/drive'
             ]
             
-            # Load credentials
-            creds = Credentials.from_service_account_file(
-                self.credentials_path,
+            # Get credentials from settings
+            credentials_dict = self._get_credentials_dict()
+            if not credentials_dict:
+                logger.warning("Google Sheets credentials not available")
+                return
+            
+            # Create credentials from dictionary
+            creds = Credentials.from_service_account_info(
+                credentials_dict,
                 scopes=scope
             )
             

@@ -327,10 +327,23 @@ GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
 GOOGLE_OAUTH2_USER_INFO_URL = os.getenv("GOOGLE_OAUTH2_USER_INFO_URL")
 
 # Google Sheets configuration
-_credentials_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH")
-GOOGLE_SHEETS_CREDENTIALS_PATH = os.path.join(BASE_DIR, _credentials_path) if _credentials_path else None
 GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
 GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv("GOOGLE_SHEETS_WORKSHEET_NAME", "Orders")
+
+# Google Service Account credentials (for Google Sheets API)
+GOOGLE_SERVICE_ACCOUNT = {
+    'type': os.getenv("GOOGLE_SERVICE_ACCOUNT_TYPE"),
+    'project_id': os.getenv("GOOGLE_SERVICE_ACCOUNT_PROJECT_ID"),
+    'private_key_id': os.getenv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY_ID"),
+    'private_key': os.getenv("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"),
+    'client_email': os.getenv("GOOGLE_SERVICE_ACCOUNT_CLIENT_EMAIL"),
+    'client_id': os.getenv("GOOGLE_SERVICE_ACCOUNT_CLIENT_ID"),
+    'auth_uri': os.getenv("GOOGLE_SERVICE_ACCOUNT_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
+    'token_uri': os.getenv("GOOGLE_SERVICE_ACCOUNT_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+    'auth_provider_x509_cert_url': os.getenv("GOOGLE_SERVICE_ACCOUNT_AUTH_PROVIDER_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs"),
+    'client_x509_cert_url': os.getenv("GOOGLE_SERVICE_ACCOUNT_CLIENT_CERT_URL"),
+    'universe_domain': os.getenv("GOOGLE_SERVICE_ACCOUNT_UNIVERSE_DOMAIN", "googleapis.com")
+}
 
 # ---------------------------------------------------------------------------- #
 #                                 MAIL                                         #
