@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "chat_service",
     "pscds",
     "restaurant_booking",
+    "order_bot",
 ]
 
 MIDDLEWARE = [
@@ -324,6 +325,12 @@ EMAIL_CRYPTER_FIELD_KEY = os.getenv("EMAIL_CRYPTER_FIELD_KEY")
 GOOGLE_OAUTH2_CLIENT_ID = os.getenv("GOOGLE_OAUTH2_CLIENT_ID")
 GOOGLE_OAUTH2_CLIENT_SECRET = os.getenv("GOOGLE_OAUTH2_CLIENT_SECRET")
 GOOGLE_OAUTH2_USER_INFO_URL = os.getenv("GOOGLE_OAUTH2_USER_INFO_URL")
+
+# Google Sheets configuration
+_credentials_path = os.getenv("GOOGLE_SHEETS_CREDENTIALS_PATH")
+GOOGLE_SHEETS_CREDENTIALS_PATH = os.path.join(BASE_DIR, _credentials_path) if _credentials_path else None
+GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID")
+GOOGLE_SHEETS_WORKSHEET_NAME = os.getenv("GOOGLE_SHEETS_WORKSHEET_NAME", "Orders")
 
 # ---------------------------------------------------------------------------- #
 #                                 MAIL                                         #

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { ChatBubbleLeftRightIcon, CalendarIcon, SparklesIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import { ChatBubbleLeftRightIcon, CalendarIcon, SparklesIcon, UserGroupIcon, ShoppingBagIcon } from '@heroicons/react/24/outline';
 
 const WelcomeHome = () => {
   const navigate = useNavigate();
@@ -18,6 +18,13 @@ const WelcomeHome = () => {
       description: "Book tables with our AI-powered reservation system. Interactive table selection and instant assistance.",
       route: "/restaurant-booking",
       color: "green"
+    },
+    {
+      icon: <ShoppingBagIcon className="w-12 h-12 text-pink-600" />,
+      title: "Order clothes",
+      description: "Order your favorite clothes with our AI assistant. Get personalized recommendations and seamless ordering.",
+      route: "/order-chat",
+      color: "pink"
     }
   ];
 
