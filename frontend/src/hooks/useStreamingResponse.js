@@ -5,10 +5,10 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 export const useStreamingResponse = () => {
   const [loading, setLoading] = useState(false);
 
-  const streamResponse = async ({ user_input, chat_id, onProgress, onFinish, onError, onGenerateImage = null, onGenerateExtraData = null }) => {
+  const streamResponse = async ({ user_input, chat_id, chat_history, apiUrl, onProgress, onFinish, onError, onGenerateImage = null, onGenerateExtraData = null }) => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await fetch(apiUrl || `${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -16,7 +16,8 @@ export const useStreamingResponse = () => {
         },
         body: JSON.stringify({ 
           message: user_input, 
-          chat_id: chat_id 
+          chat_id: chat_id,
+          chat_history: chat_history || []
         }),
       });
 
