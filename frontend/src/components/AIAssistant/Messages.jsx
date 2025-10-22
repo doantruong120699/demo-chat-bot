@@ -171,10 +171,10 @@ const Messages = ({ chatId }) => {
       {/* Messages Container */}
       <div className="w-full flex-grow my-2 pl-4 pr-4 overflow-y-auto mb-[76px] mt-[73px]">
         {messages.length === 0 && newMessages.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="text-center py-8 sm:py-12">
+            <div className="w-12 h-12 sm:w-16 sm:h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
-                className="w-8 h-8 text-purple-600"
+                className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -187,13 +187,13 @@ const Messages = ({ chatId }) => {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">
               Start a conversation
             </h3>
-            <p className="text-gray-500">Ask me anything! I'm here to help.</p>
+            <p className="text-sm sm:text-base text-gray-500">Ask me anything! I'm here to help.</p>
             {/* Example starter questions for the user */}
-            <div className="space-y-4 text-sm mx-20 my-20">
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4 text-sm mx-4 sm:mx-8 lg:mx-20 my-8 sm:my-12 lg:my-20">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
                   className="cursor-pointer group rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 px-4 py-3 text-left text-gray-700 transition-all duration-200 hover:from-blue-100 hover:to-indigo-100 hover:border-blue-200 hover:shadow-md hover:scale-[1.02] dark:from-blue-900/20 dark:to-indigo-900/20 dark:border-blue-800 dark:text-gray-300 dark:hover:from-blue-900/30 dark:hover:to-indigo-900/30"
                   onClick={async () =>
@@ -364,12 +364,12 @@ const Messages = ({ chatId }) => {
       </div>
 
       {/* Input Form */}
-      <div className="rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800 fixed bottom-0 main-content">
+      <div className="rounded-xl rounded-tr-none rounded-tl-none bg-gray-100 dark:bg-gray-800 fixed bottom-0 left-0 right-0 lg:left-auto lg:right-auto main-content">
         <div className="flex items-center">
-          <div className="p-2 text-gray-600 dark:text-gray-200">
+          <div className="p-2 text-gray-600 dark:text-gray-200 flex-shrink-0">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6"
+              className="h-5 w-5 sm:h-6 sm:w-6"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -384,7 +384,7 @@ const Messages = ({ chatId }) => {
           </div>
           <div className="search-chat flex flex-grow p-2">
             <input
-              className="input text-gray-700 dark:text-gray-200 text-sm p-5 focus:outline-none bg-gray-100 dark:bg-gray-800 flex-grow rounded-l-md"
+              className="input text-gray-700 dark:text-gray-200 text-sm p-3 sm:p-5 focus:outline-none bg-gray-100 dark:bg-gray-800 flex-grow rounded-l-md"
               type="text"
               placeholder="Type your message..."
               value={input}
@@ -403,7 +403,7 @@ const Messages = ({ chatId }) => {
               disabled={loading}
             />
             <div
-              className={`bg-gray-100 dark:bg-gray-800 dark:text-gray-200 flex justify-center items-center pr-3 rounded-r-md cursor-pointer ${
+              className={`bg-gray-100 dark:bg-gray-800 dark:text-gray-200 flex justify-center items-center px-2 sm:px-3 rounded-r-md cursor-pointer ${
                 input.trim() && !loading
                   ? "text-gray-600 hover:text-gray-800"
                   : "text-gray-400 cursor-not-allowed"
@@ -414,7 +414,7 @@ const Messages = ({ chatId }) => {
             >
               {loading ? (
                 <svg
-                  className="w-6 h-6 animate-spin"
+                  className="w-5 h-5 sm:w-6 sm:h-6 animate-spin"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -436,7 +436,7 @@ const Messages = ({ chatId }) => {
               ) : (
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className="h-6 w-6 transform rotate-90"
+                  className="h-5 w-5 sm:h-6 sm:w-6 transform rotate-90"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"

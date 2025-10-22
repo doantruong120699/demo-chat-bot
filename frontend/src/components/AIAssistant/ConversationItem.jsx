@@ -54,18 +54,15 @@ const ConversationItem = ({active, created_at, title, onClick, onDelete}) => {
                 onClick={onClick}
             >
                 <div className="flex items-center p-2">
-                    {/* <div className="w-7 h-7 m-1">
-                        <img className="rounded-full" src="https://cdn.pixabay.com/photo/2017/01/31/21/23/avatar-2027366_960_720.png" alt="avatar"/>
-                    </div> */}
-                    <div className="flex-grow">
-                        <div className="flex justify-between text-md">
-                            <div className="flex flex-col gap-1">
-                                <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{title}</div>
+                    <div className="flex-grow min-w-0">
+                        <div className="flex justify-between items-start">
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                <div className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200 truncate">{title}</div>
                                 <div className="flex items-center">
-                                    <div className="text-[11px] text-gray-400 dark:text-gray-300 mr-2">{formatDate(created_at)}</div>
+                                    <div className="text-[10px] sm:text-[11px] text-gray-400 dark:text-gray-300 mr-2">{formatDate(created_at)}</div>
                                 </div>
                             </div>
-                            <div className="relative" ref={menuRef}>
+                            <div className="relative flex-shrink-0" ref={menuRef}>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
@@ -73,16 +70,16 @@ const ConversationItem = ({active, created_at, title, onClick, onDelete}) => {
                                         }}
                                         className="p-1 hover:bg-gray-200 rounded-full transition-colors"
                                     >
-                                        <svg className="w-4 h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                                        <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                                             <path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
                                         </svg>
                                     </button>
                                     
                                     {showMenu && (
-                                        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[120px]">
+                                        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-md shadow-lg z-10 min-w-[100px] sm:min-w-[120px]">
                                             <button
                                                 onClick={handleDelete}
-                                                className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-md"
+                                                className="w-full px-2 sm:px-3 py-2 text-left text-xs sm:text-sm text-red-600 hover:bg-red-50 rounded-md"
                                             >
                                                 Delete
                                             </button>
@@ -96,22 +93,22 @@ const ConversationItem = ({active, created_at, title, onClick, onDelete}) => {
             
             {/* Confirmation Dialog */}
             {showConfirm && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
-                        <h3 className="text-lg font-medium text-gray-900 mb-2">Delete Conversation</h3>
-                        <p className="text-sm text-gray-500 mb-4">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-4 sm:p-6 max-w-sm w-full">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Delete Conversation</h3>
+                        <p className="text-xs sm:text-sm text-gray-500 mb-4">
                             Are you sure you want to delete this conversation? This action cannot be undone.
                         </p>
-                        <div className="flex justify-end space-x-3">
+                        <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
                             <button
                                 onClick={cancelDelete}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
                             >
                                 Cancel
                             </button>
                             <button
                                 onClick={confirmDelete}
-                                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
+                                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors"
                             >
                                 Delete
                             </button>

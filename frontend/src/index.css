@@ -17,6 +17,8 @@ code {
   width: calc(var(--spacing) * 80);
 }
 
-.main-content {
-  width: calc(100% - var(--spacing) * 80);
+@media (min-width: 1024px) {
+  .main-content {
+    width: calc(100% - var(--spacing) * 80);
+  }
 }

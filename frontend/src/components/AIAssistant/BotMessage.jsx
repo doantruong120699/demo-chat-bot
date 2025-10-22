@@ -274,8 +274,8 @@ const BotMessage = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="flex flex-col ml-3">
-        <div className="p-3 my-3 rounded-2xl rounded-bl-none w-1/5 bg-purple-300 dark:bg-gray-800">
+      <div className="flex flex-col ml-2 sm:ml-3">
+        <div className="p-3 my-3 rounded-2xl rounded-bl-none w-3/4 sm:w-2/3 md:w-1/2 lg:w-1/5 bg-purple-300 dark:bg-gray-800">
           <div className="text-xs text-gray-600 dark:text-gray-200">
             AI Assistant
           </div>
@@ -303,7 +303,7 @@ const BotMessage = ({
   return (
     <div className="flex flex-col w-full">
       <div
-        className={`p-3 my-3 rounded-2xl rounded-bl-none sm:w-3/4 md:w-3/4 ${
+        className={`p-3 my-3 rounded-2xl rounded-bl-none w-3/4 sm:w-2/3 md:w-1/2 lg:w-3/4 ${
           isError
             ? "bg-red-100 dark:bg-red-900 border border-red-200"
             : "bg-purple-300 dark:bg-gray-800"
@@ -410,13 +410,17 @@ const BotMessage = ({
         <>
           {imageMessage && (
             <div className="relative">
-              <img src={imageMessage} alt="Image" className="w-3/4 h-auto" />
+              <img src={imageMessage} alt="Image" className="w-full max-w-md h-auto rounded-lg" />
             </div>
           )}
           {extraData && (
-            <div className="mt-2 flex flex-row gap-2 w-3/4 justify-between">
-              <TableExtraData extraData={extraData} />
-              <ChatExtraData extraData={extraData} />
+            <div className="mt-2 flex flex-col lg:flex-row gap-2 w-full max-w-4xl">
+              <div className="flex-1">
+                <TableExtraData extraData={extraData} />
+              </div>
+              <div className="flex-1">
+                <ChatExtraData extraData={extraData} />
+              </div>
             </div>
           )}
         </>
