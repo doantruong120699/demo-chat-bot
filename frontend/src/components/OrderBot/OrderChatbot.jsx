@@ -2,6 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { useStreamingResponse } from "../../hooks/useStreamingResponse";
 import { toast } from "react-toastify";
 
+// Get API base URL from environment variable
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+
 const OrderChatbot = ({ onClose }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([
@@ -70,8 +73,7 @@ const OrderChatbot = ({ onClose }) => {
     await streamResponse({
       user_input: userInput,
       chat_history: updatedHistory, // Gửi lịch sử chat xuống backend
-      // Sử dụng endpoint backend mới cho order bot
-      apiUrl: "http://localhost:8000/api/order-bot/order-chat/",
+      apiUrl: `${API_BASE_URL}/order-bot/order-chat/`,
       onProgress: (result) => {
         // result là object { type, content }, chỉ lấy content là chuỗi
         setMessages((prevMessages) => {
