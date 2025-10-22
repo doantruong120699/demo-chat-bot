@@ -26,3 +26,5 @@ pgvector
 openai
 anthropic
 requests
+gspread
+google-auth
