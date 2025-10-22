@@ -16,8 +16,8 @@ apscheduler
 pandas
 bcrypt
 boto3
-langchain
-langchain-openai
+langchain==0.3.27
+langchain-openai==0.3.35
 langchain-community
 langchain-postgres
 langchain-anthropic
