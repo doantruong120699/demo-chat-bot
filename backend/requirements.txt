@@ -28,3 +28,5 @@ anthropic
 requests
 gspread
 google-auth
+PyPDF2
+pdfplumber

@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { useStreamingResponse } from "../../hooks/useStreamingResponse";
 import { toast } from "react-toastify";
+import ProductCard from "./ProductCard";
+import ProductModal from "./ProductModal";
 
 // Get API base URL from environment variable
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
@@ -11,7 +13,10 @@ const OrderChatbot = ({ onClose }) => {
     { type: "bot", message: "Chào bạn! Tôi có thể giúp bạn đặt hàng quần áo. Bạn muốn tìm sản phẩm gì?" },
   ]);
   const [chatHistory, setChatHistory] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showProductModal, setShowProductModal] = useState(false);
   const messagesEndRef = useRef(null);
+  const inputRef = useRef(null);
   const { streamResponse, loading } = useStreamingResponse();
 
   // Auto scroll to bottom when new messages arrive
@@ -99,6 +104,10 @@ const OrderChatbot = ({ onClose }) => {
         // Add bot message to chat history
         const newBotMessage = { role: "assistant", content: botMessage };
         setChatHistory(prev => [...prev, newBotMessage]);
+        // Auto focus input after bot finishes
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 100);
       },
       onError: (error) => {
         toast.error(`Error: ${error}`);
@@ -114,20 +123,100 @@ const OrderChatbot = ({ onClose }) => {
     });
   };
 
-  const BotMessage = ({ message }) => (
-    <div className="flex justify-start">
-      <div className="max-w-[80%] bg-white rounded-lg px-4 py-3 shadow-sm">
-        <div className="flex items-start space-x-2">
-          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
+  const handleProductCardClick = (product) => {
+    setSelectedProduct(product);
+    setShowProductModal(true);
+  };
+
+  const parseMessageForProducts = (message) => {
+    // Remove markdown images ![alt](url) - bot sometimes adds these incorrectly
+    let cleanedMessage = message.replace(/!\[.*?\]\(.*?\)/g, '');
+    
+    // Extract JSON data from message
+    const productsMatch = cleanedMessage.match(/\[PRODUCTS_JSON\](.*?)\[\/PRODUCTS_JSON\]/s);
+    const productDetailMatch = cleanedMessage.match(/\[PRODUCT_DETAIL_JSON\](.*?)\[\/PRODUCT_DETAIL_JSON\]/s);
+    
+    if (productsMatch) {
+      try {
+        const products = JSON.parse(productsMatch[1]);
+        // Remove JSON part from text
+        const textOnly = cleanedMessage.replace(/\[PRODUCTS_JSON\].*?\[\/PRODUCTS_JSON\]/s, '').trim();
+        return { type: 'products', products, text: textOnly };
+      } catch (e) {
+        console.error('❌ Failed to parse products JSON:', e);
+        console.error('📝 Raw message:', message);
+        console.error('🧹 Cleaned message:', cleanedMessage);
+        console.error('🔍 Matched JSON:', productsMatch[1]);
+      }
+    }
+    
+    if (productDetailMatch) {
+      try {
+        const product = JSON.parse(productDetailMatch[1]);
+        const textOnly = cleanedMessage.replace(/\[PRODUCT_DETAIL_JSON\].*?\[\/PRODUCT_DETAIL_JSON\]/s, '').trim();
+        return { type: 'product_detail', product, text: textOnly };
+      } catch (e) {
+        console.error('❌ Failed to parse product detail JSON:', e);
+      }
+    }
+    
+    // Check if message contains PRODUCTS_JSON markers but we couldn't parse
+    if (message.includes('[PRODUCTS_JSON]')) {
+      console.warn('⚠️ Message contains [PRODUCTS_JSON] but parsing failed');
+      console.log('Original message:', message);
+    }
+    
+    return { type: 'text', text: cleanedMessage };
+  };
+
+  const BotMessage = ({ message }) => {
+    const parsed = parseMessageForProducts(message);
+    
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[80%] bg-white rounded-lg px-4 py-3 shadow-sm">
+          <div className="flex items-start space-x-2">
+            <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              {/* Text content */}
+              {parsed.text && (
+                <div className="text-gray-700 text-sm whitespace-pre-wrap mb-3">
+                  {parsed.text}
+                </div>
+              )}
+              
+              {/* Product list */}
+              {parsed.type === 'products' && parsed.products && parsed.products.length > 0 && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {parsed.products.slice(0, 6).map((product) => (
+                    <ProductCard 
+                      key={product.id} 
+                      product={product}
+                      onCardClick={handleProductCardClick}
+                    />
+                  ))}
+                </div>
+              )}
+              
+              {/* Single product detail */}
+              {parsed.type === 'product_detail' && parsed.product && (
+                <div className="mt-2">
+                  <ProductCard 
+                    product={parsed.product}
+                    onCardClick={handleProductCardClick}
+                  />
+                </div>
+              )}
+            </div>
           </div>
-          <div className="text-gray-700 text-sm whitespace-pre-wrap">{message}</div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const HumanMessage = ({ message }) => (
     <div className="flex justify-end">
@@ -144,7 +233,7 @@ const OrderChatbot = ({ onClose }) => {
         <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-6 py-4 rounded-t-lg flex justify-between items-center">
           <div>
             <h2 className="text-xl font-bold">AI Shopping Assistant</h2>
-            <p className="text-sm text-purple-100">Tôi sẽ giúp bạn đặt hàng quần áo</p>
+            <p className="text-sm text-purple-100">I'll help you order clothes</p>
           </div>
           <button
             onClick={onClose}
@@ -160,14 +249,17 @@ const OrderChatbot = ({ onClose }) => {
         <div className="flex-grow overflow-y-auto p-6 space-y-4 bg-gray-50">
           {messages.map((message, index) => {
             if (message.type === "bot") {
+              if (loading && message.message === "" && index === messages.length - 1) {
+                return <BotMessage key={index} message="Đang suy nghĩ..." />;
+              }
+              if (message.message === "") {
+                return null;
+              }
               return <BotMessage key={index} message={message.message} />;
             } else {
               return <HumanMessage key={index} message={message.message} />;
             }
           })}
-          {loading && messages[messages.length - 1]?.message === "" && (
-            <BotMessage message="Đang suy nghĩ..." />
-          )}
           <div ref={messagesEndRef}></div>
         </div>
 
@@ -175,9 +267,10 @@ const OrderChatbot = ({ onClose }) => {
         <div className="p-4 border-t bg-white rounded-b-lg">
           <div className="flex items-center space-x-2">
             <input
+              ref={inputRef}
               className="flex-grow border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
               type="text"
-              placeholder="Nhập yêu cầu của bạn, ví dụ: 'Tôi muốn một chiếc áo thun size M màu đen'"
+              placeholder="Enter your request, e.g., 'I want a black t-shirt in size M'"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -217,7 +310,7 @@ const OrderChatbot = ({ onClose }) => {
                 setChatHistory([]);
                 setMessages([{ type: 'bot', message: 'Chào bạn! Tôi có thể giúp bạn đặt hàng quần áo. Bạn muốn tìm sản phẩm gì?' }]);
               }}
-              title="Xóa lịch sử chat"
+              title="Clear chat history"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -237,6 +330,13 @@ const OrderChatbot = ({ onClose }) => {
           </div>
         </div>
       </div>
+      
+      {/* Product Modal */}
+      <ProductModal 
+        product={selectedProduct}
+        isOpen={showProductModal}
+        onClose={() => setShowProductModal(false)}
+      />
     </div>
   );
 };

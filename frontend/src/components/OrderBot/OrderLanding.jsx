@@ -46,10 +46,10 @@ const OrderLanding = () => {
   ];
 
   const productCategories = [
-    { name: "Áo thun", image: "👕", count: "100+ items" },
-    { name: "Quần jean", image: "👖", count: "80+ items" },
-    { name: "Váy", image: "👗", count: "60+ items" },
-    { name: "Giày", image: "👟", count: "50+ items" },
+    { name: "T-Shirts", image: "👕", count: "100+ items" },
+    { name: "Jeans", image: "👖", count: "80+ items" },
+    { name: "Dresses", image: "👗", count: "60+ items" },
+    { name: "Shoes", image: "👟", count: "50+ items" },
   ];
 
   return (
