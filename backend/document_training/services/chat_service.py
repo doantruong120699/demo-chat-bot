@@ -38,10 +38,8 @@ class DocumentChatService:
         # System prompt with RAG context
         if document_id or document_content:
             self.system_prompt = """Bạn là trợ lý AI thông minh, hỗ trợ người dùng trả lời câu hỏi dựa trên tài liệu được cung cấp.
-
             CÁC ĐOẠN VĂN BẢN LIÊN QUAN:
             {context}
-
             NHIỆM VỤ:
             - Đọc kỹ các đoạn văn bản được cung cấp ở trên
             - Trả lời câu hỏi dựa trên thông tin từ các đoạn văn bản
@@ -49,17 +47,14 @@ class DocumentChatService:
             - Trả lời một cách tự nhiên, rõ ràng và hữu ích
             - Nếu thông tin trong các đoạn văn bản không đủ để trả lời, hãy nói rõ và đưa ra câu trả lời tốt nhất có thể
             - Khi trích dẫn thông tin, hãy ghi rõ đến từ [Đoạn X]
-
             Hãy trả lời câu hỏi của người dùng."""
-                    else:
-                        self.system_prompt = """Bạn là trợ lý AI thông minh và thân thiện.
-
+        else:
+            self.system_prompt = """Bạn là trợ lý AI thông minh và thân thiện.
             NHIỆM VỤ:
             - Trả lời câu hỏi của người dùng một cách chính xác và hữu ích
             - Giải thích rõ ràng, dễ hiểu
             - Thân thiện và lịch sự
             - Nếu không biết câu trả lời, hãy thừa nhận và đề xuất hướng giải quyết
-
             Hãy trả lời câu hỏi của người dùng."""
     
     def chat(
