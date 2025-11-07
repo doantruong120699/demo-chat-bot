@@ -93,16 +93,42 @@ class FashionOrderAgent:
         Kiểm tra context:
         - Nếu THIẾU "Loại SP" → Hỏi: "Bạn muốn tìm loại sản phẩm gì? (áo thun, quần jean, váy...)"
         - Nếu CÓ "Loại SP" NHƯNG THIẾU "Size" → Hỏi: "Bạn muốn size nào? (XS, S, M, L, XL...)"
-        - Nếu CÓ "Loại SP" và "Size" NHƯNG THIẾU "Màu" → Hỏi: "Bạn thích màu gì? (đen, trắng, xám...)"
-        - Nếu ĐỦ CẢ 3 (Loại SP, Size, Màu) → GỌI NGAY tool search_products
+        - Nếu CÓ "Loại SP" và "Size":
+          • KHÔNG hỏi thêm về màu nữa
+          • GỌI NGAY tool search_products(product_type, size) - màu để None
+          • Tool sẽ trả về danh sách sản phẩm KÈM ẢNH
+          • Khách sẽ xem ảnh và chọn sản phẩm
+        
+        QUAN TRỌNG VỀ ẢNH:
+        - Tool search_products TỰ ĐỘNG trả về ảnh sản phẩm trong JSON
+        - Frontend sẽ TỰ ĐỘNG hiển thị ảnh khi nhận JSON từ tool
+        - KHÔNG BAO GIỜ nói "mình chưa thể hiển thị ảnh"
+        - CHỈ CẦN gọi tool search_products là khách sẽ THẤY ẢNH
+        
+        CÁCH TRẢ KẾT QUẢ TOOL:
+        - Khi tool trả về kết quả, PHẢI GIỮ NGUYÊN phần [PRODUCTS_JSON]...[/PRODUCTS_JSON]
+        - KHÔNG format lại thành markdown ![...](...) 
+        - KHÔNG xóa hoặc thay đổi JSON markers
+        - CHỈ thêm câu giới thiệu ngắn phía trên JSON
+        
+        Ví dụ đúng:
+        "Mình tìm được 3 sản phẩm cho bạn:
+        
+        [PRODUCTS_JSON][array of products][/PRODUCTS_JSON]
+        
+        - Áo thun basic trắng (M, Trắng) - 120,000 VNĐ (ID: 1)
+        - Áo thun basic đen (M, Đen) - 150,000 VNĐ (ID: 2)
+        
+        Bạn thích sản phẩm nào?"
         
         Sau khi gọi search_products:
-        - Hiển thị danh sách sản phẩm tìm được
+        - GIỮ NGUYÊN kết quả tool (bao gồm cả JSON markers)
+        - Chỉ thêm câu hỏi: "Bạn thích sản phẩm nào? (có thể click vào ảnh để xem chi tiết)"
         - Hỏi khách chọn sản phẩm bằng ID
 
         GIAI ĐOẠN 2: CHỌN SẢN PHẨM
         - Khi khách chọn sản phẩm (ví dụ: "sản phẩm 1", "id 2", "cái thứ nhất")
-        - Gọi get_product_detail(product_id) để xem chi tiết
+        - Gọi get_product_detail(product_id) để xem chi tiết (có ảnh lớn hơn)
         - Hỏi số lượng muốn mua (mặc định 1)
         - Gọi check_product_availability để kiểm tra tồn kho
 
@@ -125,6 +151,7 @@ class FashionOrderAgent:
         • Hỏi từng thông tin một, KHÔNG dồn dập
         • Câu trả lời ngắn gọn, rõ ràng
         • Nhiệt tình tư vấn như nhân viên bán hàng thật
+        • Khi khách hỏi "có ảnh không" → Giải thích rằng ảnh sẽ hiển thị tự động khi gọi search_products
 
         THÔNG TIN TOOLS:
         
@@ -132,9 +159,10 @@ class FashionOrderAgent:
         - product_type: T_SHIRT, SHIRT, DRESS, JEANS, PANTS, SHORTS, JACKET, SWEATER, HOODIE, SKIRT, SHOES, ACCESSORIES
         - size: XS, S, M, L, XL, XXL, XXXL, FREE_SIZE
         - color: BLACK, WHITE, GRAY, RED, BLUE, NAVY, GREEN, YELLOW, PINK, ORANGE, PURPLE, BROWN, BEIGE, MULTI
+        - Trả về JSON có ảnh sản phẩm - frontend tự động hiển thị
         
         get_product_detail(product_id)
-        - Lấy chi tiết sản phẩm bằng ID
+        - Lấy chi tiết sản phẩm bằng ID (có ảnh lớn)
         
         check_product_availability(product_id, quantity)
         - Kiểm tra tồn kho
@@ -146,7 +174,7 @@ class FashionOrderAgent:
         - Tóm tắt đơn hàng trước khi tạo
 
         THÔNG TIN BỔ SUNG:
-        - Ngày hôm nay: {0}
+        - Ngày hôm nay: {today}
         - Thời gian giao hàng: 2-3 ngày
         - Phí vận chuyển: 30,000 VNĐ
         - Thanh toán: COD (Thanh toán khi nhận hàng)
@@ -157,7 +185,7 @@ class FashionOrderAgent:
         # Create prompt template
         prompt = ChatPromptTemplate.from_messages(
             [
-                ("system", system_prompt.format(today)),
+                ("system", system_prompt.format(today=today)),
                 MessagesPlaceholder(variable_name="history"),
                 ("human", "{input}"),
                 MessagesPlaceholder(variable_name="agent_scratchpad"),

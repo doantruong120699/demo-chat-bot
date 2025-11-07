@@ -3,6 +3,7 @@ from order_bot.models.product import Product
 from order_bot.models.category import Category
 from typing import Optional, List
 from django.db.models import Q
+import json
 
 
 class ProductsService:
@@ -66,18 +67,30 @@ class ProductsService:
         if not products:
             return "Không tìm thấy sản phẩm phù hợp với yêu cầu."
         
-        result = f"Tìm thấy {len(products)} sản phẩm:\n\n"
+        # Return as JSON for better frontend parsing
+        products_data = []
         for product in products:
-            result += f"ID: {product.id}\n"
-            result += f"Tên: {product.name}\n"
-            result += f"Loại: {product.get_product_type_display()}\n"
-            result += f"Size: {product.get_size_display()}\n"
-            result += f"Màu: {product.get_color_display()}\n"
-            result += f"Giá: {product.final_price:,.0f} VNĐ\n"
-            result += f"Còn {product.stock} sản phẩm\n"
-            if product.material:
-                result += f"Chất liệu: {product.material}\n"
-            result += "\n---\n\n"
+            products_data.append({
+                "id": product.id,
+                "name": product.name,
+                "product_type": product.get_product_type_display(),
+                "size": product.get_size_display(),
+                "color": product.get_color_display(),
+                "price": float(product.price),
+                "discount_price": float(product.discount_price) if product.discount_price else None,
+                "final_price": float(product.final_price),
+                "stock": product.stock,
+                "material": product.material,
+                "image": product.image,
+                "description": product.description
+            })
+        
+        result = f"Tìm thấy {len(products)} sản phẩm:\n\n"
+        result += f"[PRODUCTS_JSON]{json.dumps(products_data, ensure_ascii=False)}[/PRODUCTS_JSON]\n\n"
+        
+        # Also add text version for AI context
+        for product in products:
+            result += f"- {product.name} ({product.get_size_display()}, {product.get_color_display()}) - {product.final_price:,.0f} VNĐ (ID: {product.id}, Còn {product.stock} sản phẩm)\n"
         
         return result
     
@@ -96,7 +109,27 @@ class ProductsService:
         try:
             product = Product.objects.get(id=product_id, is_active=True)
             
-            result = f"Thông tin sản phẩm #{product.id}:\n\n"
+            # Return JSON for frontend
+            product_data = {
+                "id": product.id,
+                "name": product.name,
+                "category": product.category.name,
+                "product_type": product.get_product_type_display(),
+                "size": product.get_size_display(),
+                "color": product.get_color_display(),
+                "price": float(product.price),
+                "discount_price": float(product.discount_price) if product.discount_price else None,
+                "final_price": float(product.final_price),
+                "stock": product.stock,
+                "material": product.material,
+                "image": product.image,
+                "description": product.description
+            }
+            
+            result = f"[PRODUCT_DETAIL_JSON]{json.dumps(product_data, ensure_ascii=False)}[/PRODUCT_DETAIL_JSON]\n\n"
+            
+            # Text version for context
+            result += f"Thông tin sản phẩm #{product.id}:\n"
             result += f"Tên: {product.name}\n"
             result += f"Danh mục: {product.category.name}\n"
             result += f"Loại: {product.get_product_type_display()}\n"

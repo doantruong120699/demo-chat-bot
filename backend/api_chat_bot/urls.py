@@ -50,6 +50,7 @@ urlpatterns = (
         path("api/", include("chat_service.urls")),
         path("api/restaurant-booking/", include("restaurant_booking.urls")),
         path("api/order-bot/", include("order_bot.urls")),
+        path("api/document-training/", include("document_training.urls")),
         path("admin/", admin.site.urls),
     ]
     + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "pscds",
     "restaurant_booking",
     "order_bot",
+    "document_training",
 ]
 
 MIDDLEWARE = [

@@ -20,35 +20,35 @@ const OrderChat = () => {
         <div className="max-w-4xl w-full">
           <div className="bg-white rounded-lg shadow-xl p-8 mb-6">
             <h2 className="text-3xl font-bold text-gray-900 mb-4 text-center">
-              Đặt hàng quần áo với AI
+              Order Clothes with AI
             </h2>
             <p className="text-gray-600 text-center mb-6">
-              Bấm nút chat ở góc dưới bên phải để bắt đầu đặt hàng với trợ lý AI của chúng tôi
+              Click the chat button in the bottom right corner to start ordering with our AI assistant
             </p>
             
             {/* Product showcase */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-6 text-center">
                 <div className="text-6xl mb-4">👕</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Áo thun</h3>
-                <p className="text-gray-600">Đa dạng mẫu mã, size và màu sắc</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">T-Shirts</h3>
+                <p className="text-gray-600">Diverse styles, sizes and colors</p>
               </div>
               <div className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-6 text-center">
                 <div className="text-6xl mb-4">👖</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Quần jean</h3>
-                <p className="text-gray-600">Phong cách hiện đại, chất lượng cao</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Jeans</h3>
+                <p className="text-gray-600">Modern style, high quality</p>
               </div>
               <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-6 text-center">
                 <div className="text-6xl mb-4">👗</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">Váy</h3>
-                <p className="text-gray-600">Thiết kế sang trọng, thanh lịch</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Dresses</h3>
+                <p className="text-gray-600">Elegant and sophisticated designs</p>
               </div>
             </div>
 
             {/* Features */}
             <div className="mt-8 bg-gray-50 rounded-lg p-6">
               <h3 className="text-xl font-semibold text-gray-900 mb-4 text-center">
-                Tại sao chọn chúng tôi?
+                Why Choose Us?
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="flex items-start space-x-3">
@@ -56,8 +56,8 @@ const OrderChat = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Đặt hàng nhanh chóng</h4>
-                    <p className="text-gray-600 text-sm">Chỉ cần chat với AI, không cần điền form</p>
+                    <h4 className="font-semibold text-gray-900">Quick Ordering</h4>
+                    <p className="text-gray-600 text-sm">Just chat with AI, no forms needed</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -65,8 +65,8 @@ const OrderChat = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Tư vấn thông minh</h4>
-                    <p className="text-gray-600 text-sm">AI hiểu nhu cầu và gợi ý sản phẩm phù hợp</p>
+                    <h4 className="font-semibold text-gray-900">Smart Consultation</h4>
+                    <p className="text-gray-600 text-sm">AI understands needs and suggests suitable products</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -74,8 +74,8 @@ const OrderChat = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Giao hàng nhanh</h4>
-                    <p className="text-gray-600 text-sm">Nhận hàng trong 2-3 ngày</p>
+                    <h4 className="font-semibold text-gray-900">Fast Delivery</h4>
+                    <p className="text-gray-600 text-sm">Receive within 2-3 days</p>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">
@@ -83,8 +83,8 @@ const OrderChat = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                   <div>
-                    <h4 className="font-semibold text-gray-900">Hỗ trợ 24/7</h4>
-                    <p className="text-gray-600 text-sm">AI luôn sẵn sàng trả lời câu hỏi</p>
+                    <h4 className="font-semibold text-gray-900">24/7 Support</h4>
+                    <p className="text-gray-600 text-sm">AI always ready to answer questions</p>
                   </div>
                 </div>
               </div>
